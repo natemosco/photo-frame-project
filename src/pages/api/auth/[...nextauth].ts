@@ -1,5 +1,6 @@
 import NextAuth, { type NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import { syncUserFromProvider } from "../../../lib/user";
 
 export const authOptions: NextAuthOptions = {
     debug: true,
@@ -11,6 +12,32 @@ export const authOptions: NextAuthOptions = {
     ],
     session: {
         strategy: "jwt",
+    },
+    callbacks: {
+        async jwt({ token, user, account }) {
+            // Sync user to database on sign-in
+            if (user && account) {
+                try {
+                    const userId = await syncUserFromProvider(user, account);
+                    token.userId = userId;
+                    token.googleId = account.providerAccountId;
+                } catch (error) {
+                    console.error("Failed to sync user to database:", error);
+                }
+            }
+            return token;
+        },
+        async session({ session, token }) {
+            // Include googleId in session.user.id for compatibility with getOrCreateUser
+            if (session.user && token.googleId) {
+                (session.user as any).id = token.googleId;
+            }
+            // Optionally include database userId in session
+            if (token.userId) {
+                (session as any).userId = token.userId;
+            }
+            return session;
+        },
     },
 };
 

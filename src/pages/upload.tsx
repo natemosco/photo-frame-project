@@ -50,7 +50,14 @@ export default function UploadPage() {
     const metaRes = await fetch("/api/gallery/append", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, publicUrl, uploadedAt: new Date().toISOString() }),
+      body: JSON.stringify({
+        key,
+        publicUrl,
+        filename: file.name,
+        contentType: file.type,
+        size: file.size,
+        uploadedAt: new Date().toISOString(),
+      }),
     });
 
     if (!metaRes.ok) {
