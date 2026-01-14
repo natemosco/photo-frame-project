@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Navigation from "../components/Navigation";
 
 type GalleryItem = {
   key: string;
@@ -21,9 +22,11 @@ export default function GalleryPage() {
   }, []);
 
   return (
-    <div style={{ padding: 24 }}>
-      <h1>Gallery</h1>
-      {err && <p>{err}</p>}
+    <>
+      <Navigation />
+      <div style={{ padding: 24 }}>
+        <h1>Gallery</h1>
+        {err && <p>{err}</p>}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
         {items.map((it) => (
@@ -34,7 +37,8 @@ export default function GalleryPage() {
           </div>
         ))}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
  

@@ -1,19 +1,30 @@
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useState } from "react";
+import Navigation from "../components/Navigation";
 
 export default function UploadPage() {
   const { data: session, status } = useSession();
   const [file, setFile] = useState<File | null>(null);
   const [msg, setMsg] = useState<string>("");
 
-  if (status === "loading") return <div>Loading…</div>;
+  if (status === "loading") {
+    return (
+      <>
+        <Navigation />
+        <div style={{ padding: 24 }}>Loading…</div>
+      </>
+    );
+  }
 
   if (!session) {
     return (
-      <div style={{ padding: 24 }}>
-        <h1>Upload</h1>
-        <button onClick={() => signIn("google")}>Sign in with Google</button>
-      </div>
+      <>
+        <Navigation />
+        <div style={{ padding: 24 }}>
+          <h1>Upload</h1>
+          <p>Please sign in to upload photos.</p>
+        </div>
+      </>
     );
   }
 
@@ -69,13 +80,10 @@ export default function UploadPage() {
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <div>Signed in as {session.user?.email}</div>
-        <button onClick={() => signOut()}>Sign out</button>
-      </div>
-
-      <h1 style={{ marginTop: 16 }}>Upload a photo (≤ 10MB)</h1>
+    <>
+      <Navigation />
+      <div style={{ padding: 24 }}>
+        <h1 style={{ marginTop: 16 }}>Upload a photo (≤ 10MB)</h1>
 
       <input
         type="file"
@@ -87,7 +95,8 @@ export default function UploadPage() {
         <button disabled={!file} onClick={onUpload}>Upload</button>
       </div>
 
-      <p style={{ marginTop: 12 }}>{msg}</p>
-    </div>
+        <p style={{ marginTop: 12 }}>{msg}</p>
+      </div>
+    </>
   );
 }
