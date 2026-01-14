@@ -7,7 +7,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.967.0",
@@ -15,6 +18,7 @@
     "@neondatabase/serverless": "^1.0.2",
     "drizzle-kit": "^0.31.8",
     "drizzle-orm": "^0.45.1",
+    "nanoid": "^5.1.6",
     "next": "16.1.1",
     "next-auth": "^4.24.13",
     "react": "19.2.3",
@@ -26,6 +30,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^17.2.3",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "tailwindcss": "^4",
