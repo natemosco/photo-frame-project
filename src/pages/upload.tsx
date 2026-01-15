@@ -44,14 +44,16 @@ export default function UploadPage() {
       return;
     }
 
-    const { url, fields, key, publicUrl } = await presignRes.json();
+    const { url, key, publicUrl } = await presignRes.json();
 
     setMsg("Uploading to S3…");
-    const formData = new FormData();
-    Object.entries(fields).forEach(([k, v]) => formData.append(k, v as string));
-    formData.append("file", file);
-
-    const s3Res = await fetch(url, { method: "POST", body: formData });
+    const s3Res = await fetch(url, {
+      method: "PUT",
+      body: file,
+      headers: {
+        "Content-Type": file.type,
+      },
+    });
     if (!s3Res.ok) {
       setMsg("Upload failed");
       return;
