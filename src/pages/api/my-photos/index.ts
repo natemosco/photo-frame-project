@@ -5,6 +5,8 @@ import { eq, desc, and, SQL } from "drizzle-orm";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { getOrCreateUser } from "../../../lib/user";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
@@ -44,16 +46,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .where(whereCondition)
       .orderBy(desc(photos.uploadedAt));
 
-    // Transform to match expected format (uploadedAt as ISO string)
-    const items = userPhotos.map((photo) => ({
-      id: photo.id,
-      key: photo.key,
-      publicUrl: photo.publicUrl,
-      filename: photo.filename,
-      uploadedAt: photo.uploadedAt.toISOString(),
-      isShared: photo.isShared,
-      frameId: photo.frameId,
-    }));
+    // Generate presigned GET URLs for each photo (valid for 1 hour)
+    // This is needed because the S3 bucket blocks public access
+    const s3 = new S3Client({ region: process.env.AWS_REGION });
+    const bucket = process.env.S3_BUCKET;
+
+    if (!bucket) {
+      return res.status(500).json({ error: "S3_BUCKET environment variable is not set" });
+    }
+
+    // Transform to match expected format with presigned URLs
+    const items = await Promise.all(
+      userPhotos.map(async (photo) => {
+        // Generate presigned GET URL
+        const getCommand = new GetObjectCommand({
+          Bucket: bucket,
+          Key: photo.key,
+        });
+        const presignedUrl = await getSignedUrl(s3, getCommand, { expiresIn: 3600 });
+
+        return {
+          id: photo.id,
+          key: photo.key,
+          publicUrl: presignedUrl, // Use presigned URL instead of stored publicUrl
+          filename: photo.filename,
+          uploadedAt: photo.uploadedAt.toISOString(),
+          isShared: photo.isShared,
+          frameId: photo.frameId,
+        };
+      })
+    );
 
     return res.status(200).json({ items });
   } catch (error: any) {
