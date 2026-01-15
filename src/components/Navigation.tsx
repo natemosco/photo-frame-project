@@ -31,6 +31,12 @@ export default function Navigation() {
             Gallery
           </Link>
           <Link
+            href="/my-photos"
+            style={{ textDecoration: "none", color: "#374151", padding: "8px 12px", borderRadius: "4px" }}
+          >
+            My Photos
+          </Link>
+          <Link
             href="/upload"
             style={{ textDecoration: "none", color: "#374151", padding: "8px 12px", borderRadius: "4px" }}
           >

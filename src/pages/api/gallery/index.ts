@@ -7,6 +7,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
   try {
+    // Gallery shows only shared photos (isShared = true) - public view
+    // Future: Will also display photo frames when frame feature is implemented
     // Query photos where isShared = true, ordered by uploadedAt descending
     const sharedPhotos = await db
       .select({
