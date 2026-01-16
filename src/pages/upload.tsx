@@ -26,7 +26,7 @@ export default function UploadPage() {
     return (
       <>
         <Navigation />
-        <div style={{ padding: 24 }}>Loading…</div>
+        <div style={{ padding: 24 }}>Loading?</div>
       </>
     );
   }
@@ -72,9 +72,18 @@ export default function UploadPage() {
     }
   };
 
-  // Upload file to S3 and save metadata
+  // Upload file to S3 and save metadata with progress tracking
   const processUpload = useCallback(async (jobId: string, fileToUpload: File) => {
     try {
+      // Update state to uploading if not already set
+      setJobs((prev) =>
+        prev.map((j) =>
+          j.id === jobId && j.state !== "uploading"
+            ? { ...j, state: "uploading", progress: 0 }
+            : j
+        )
+      );
+
       // Request presign URL
       const presignRes = await fetch("/api/uploads/presign", {
         method: "POST",
@@ -93,18 +102,45 @@ export default function UploadPage() {
 
       const { url, key, publicUrl } = await presignRes.json();
 
-      // Upload to S3
-      const s3Res = await fetch(url, {
-        method: "PUT",
-        body: fileToUpload,
-        headers: {
-          "Content-Type": fileToUpload.type,
-        },
+      // Upload to S3 with progress tracking using XMLHttpRequest
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        // Track upload progress
+        xhr.upload.addEventListener("progress", (e) => {
+          if (e.lengthComputable) {
+            const progress = Math.round((e.loaded / e.total) * 90); // 90% for upload, 10% for metadata save
+            setJobs((prev) =>
+              prev.map((j) => (j.id === jobId ? { ...j, progress } : j))
+            );
+          }
+        });
+
+        xhr.addEventListener("load", () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`Upload failed with status ${xhr.status}`));
+          }
+        });
+
+        xhr.addEventListener("error", () => {
+          reject(new Error("Network error during upload"));
+        });
+
+        xhr.addEventListener("abort", () => {
+          reject(new Error("Upload aborted"));
+        });
+
+        xhr.open("PUT", url);
+        xhr.setRequestHeader("Content-Type", fileToUpload.type);
+        xhr.send(fileToUpload);
       });
 
-      if (!s3Res.ok) {
-        throw new Error("Upload failed");
-      }
+      // Update progress to 95% (upload complete, saving metadata)
+      setJobs((prev) =>
+        prev.map((j) => (j.id === jobId ? { ...j, progress: 95 } : j))
+      );
 
       // Save metadata
       const metaRes = await fetch("/api/gallery/append", {
@@ -124,16 +160,16 @@ export default function UploadPage() {
         throw new Error("Uploaded, but failed to save metadata");
       }
 
-      // Update job state to done
+      // Update job state to done with 100% progress
       setJobs((prev) =>
-        prev.map((j) => (j.id === jobId ? { ...j, state: "done" } : j))
+        prev.map((j) => (j.id === jobId ? { ...j, state: "done", progress: 100 } : j))
       );
     } catch (error: any) {
       // Update job state to error
       setJobs((prev) =>
         prev.map((j) =>
           j.id === jobId
-            ? { ...j, state: "error", error: error.message }
+            ? { ...j, state: "error", error: error.message, progress: undefined }
             : j
         )
       );
@@ -220,9 +256,7 @@ export default function UploadPage() {
         processConversionQueue();
       } else {
         // Skip conversion, go directly to uploading
-        setJobs((prev) =>
-          prev.map((j) => (j.id === job.id ? { ...j, state: "skipped" } : j))
-        );
+        // State will be set to "uploading" in processUpload
         processUpload(job.id, job.file);
       }
     });
@@ -236,13 +270,15 @@ export default function UploadPage() {
       case "converting":
         return "Converting HEIC to JPEG...";
       case "uploading":
-        return "Uploading...";
+        return job.progress !== undefined
+          ? `Uploading... ${job.progress}%`
+          : "Uploading...";
       case "done":
-        return "✓ Uploaded";
+        return "? Uploaded";
       case "error":
-        return `✗ Error: ${job.error || "Unknown error"}`;
+        return `? Error: ${job.error || "Unknown error"}`;
       case "skipped":
-        return "Uploading...";
+        return "Processing...";
       default:
         return "";
     }
@@ -252,8 +288,11 @@ export default function UploadPage() {
   const getConversionStatus = (): string => {
     const converting = jobs.filter((j) => j.state === "converting").length;
     const queued = jobs.filter((j) => j.state === "queued" && isHeicFile(j.file)).length;
-    if (converting > 0 || queued > 0) {
-      return `Converting ${converting}/${Math.min(2, converting + queued)} HEIC files...`;
+    if (converting > 0) {
+      const total = converting + queued;
+      return `Converting ${converting} of ${total} HEIC file${total !== 1 ? "s" : ""}...`;
+    } else if (queued > 0) {
+      return `Waiting to convert ${queued} HEIC file${queued !== 1 ? "s" : ""}...`;
     }
     return "";
   };
@@ -275,7 +314,7 @@ export default function UploadPage() {
     <>
       <Navigation />
       <div style={{ padding: 24 }}>
-        <h1 style={{ marginTop: 16 }}>Upload photos (≤ 10MB each)</h1>
+        <h1 style={{ marginTop: 16 }}>Upload photos (? 10MB each)</h1>
 
         <input
           type="file"
@@ -315,17 +354,54 @@ export default function UploadPage() {
                     backgroundColor: job.state === "done" ? "#f0f9ff" : job.state === "error" ? "#fef2f2" : "#fff",
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 500 }}>{job.file.name}</div>
                       <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
                         {getStatusText(job)}
                       </div>
                     </div>
-                    <div style={{ fontSize: 12, color: "#999" }}>
+                    <div style={{ fontSize: 12, color: "#999", marginLeft: 16 }}>
                       {(job.file.size / 1024 / 1024).toFixed(2)} MB
                     </div>
                   </div>
+                  {/* Progress bar for uploading state */}
+                  {job.state === "uploading" && job.progress !== undefined && (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: 6,
+                        backgroundColor: "#e5e7eb",
+                        borderRadius: 3,
+                        overflow: "hidden",
+                        marginTop: 8,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${job.progress}%`,
+                          height: "100%",
+                          backgroundColor: "#3b82f6",
+                          transition: "width 0.3s ease",
+                        }}
+                      />
+                    </div>
+                  )}
+                  {/* Error message display */}
+                  {job.state === "error" && job.error && (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        padding: 8,
+                        backgroundColor: "#fee2e2",
+                        borderRadius: 4,
+                        fontSize: 12,
+                        color: "#991b1b",
+                      }}
+                    >
+                      {job.error}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
