@@ -22,6 +22,11 @@ export default function MyPhotosPage() {
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [toggling, setToggling] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deletionConfirm, setDeletionConfirm] = useState<{ open: boolean; photoIds: string[] }>({
+    open: false,
+    photoIds: [],
+  });
 
   useEffect(() => {
     if (status === "loading") return;
@@ -138,6 +143,52 @@ export default function MyPhotosPage() {
     }
   }
 
+  function handleDelete(photoIds: string[]) {
+    setDeletionConfirm({ open: true, photoIds });
+  }
+
+  async function handleConfirmDelete() {
+    if (deleting || deletionConfirm.photoIds.length === 0) return;
+
+    setDeleting(true);
+    setErr("");
+    try {
+      const res = await fetch("/api/my-photos/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photoIds: deletionConfirm.photoIds }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setErr(data?.error ?? "Failed to delete photos");
+        return;
+      }
+
+      // Remove deleted photos from the items array
+      const deletedIds = new Set(deletionConfirm.photoIds);
+      setItems((prev) => prev.filter((item) => !deletedIds.has(item.id)));
+
+      // Clear selection if any deleted photos were selected
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        deletionConfirm.photoIds.forEach((id) => next.delete(id));
+        return next;
+      });
+
+      // Close confirmation dialog
+      handleCancelDelete();
+    } catch (error) {
+      setErr("Failed to delete photos");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function handleCancelDelete() {
+    setDeletionConfirm({ open: false, photoIds: [] });
+  }
+
   if (status === "loading") {
     return (
       <>
@@ -234,32 +285,48 @@ export default function MyPhotosPage() {
               </button>
               <button
                 onClick={() => handleBulkToggleShare(false)}
-                disabled={toggling}
+                disabled={toggling || deleting}
                 style={{
                   padding: "8px 16px",
                   borderRadius: "4px",
                   border: "none",
                   backgroundColor: "#6b7280",
                   color: "white",
-                  cursor: toggling ? "not-allowed" : "pointer",
+                  cursor: toggling || deleting ? "not-allowed" : "pointer",
                   fontSize: "14px",
-                  opacity: toggling ? 0.6 : 1,
+                  opacity: toggling || deleting ? 0.6 : 1,
                 }}
               >
                 Make Private
               </button>
               <button
+                onClick={() => handleDelete(Array.from(selectedIds))}
+                disabled={deleting || toggling}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "4px",
+                  border: "none",
+                  backgroundColor: "#ef4444",
+                  color: "white",
+                  cursor: deleting || toggling ? "not-allowed" : "pointer",
+                  fontSize: "14px",
+                  opacity: deleting || toggling ? 0.6 : 1,
+                }}
+              >
+                Delete Selected
+              </button>
+              <button
                 onClick={() => setSelectedIds(new Set())}
-                disabled={toggling}
+                disabled={toggling || deleting}
                 style={{
                   padding: "8px 16px",
                   borderRadius: "4px",
                   border: "1px solid #d1d5db",
                   backgroundColor: "white",
                   color: "#374151",
-                  cursor: toggling ? "not-allowed" : "pointer",
+                  cursor: toggling || deleting ? "not-allowed" : "pointer",
                   fontSize: "14px",
-                  opacity: toggling ? 0.6 : 1,
+                  opacity: toggling || deleting ? 0.6 : 1,
                 }}
               >
                 Cancel
@@ -370,7 +437,7 @@ export default function MyPhotosPage() {
                   {/* Toggle button */}
                   <button
                     onClick={() => handleToggleShare(item.id)}
-                    disabled={toggling}
+                    disabled={toggling || deleting}
                     style={{
                       marginTop: "8px",
                       padding: "4px 8px",
@@ -378,17 +445,106 @@ export default function MyPhotosPage() {
                       border: "1px solid #d1d5db",
                       backgroundColor: "white",
                       color: "#374151",
-                      cursor: toggling ? "not-allowed" : "pointer",
+                      cursor: toggling || deleting ? "not-allowed" : "pointer",
                       fontSize: "11px",
                       width: "100%",
-                      opacity: toggling ? 0.6 : 1,
+                      opacity: toggling || deleting ? 0.6 : 1,
                     }}
                   >
                     {item.isShared ? "Make Private" : "Share"}
                   </button>
+                  {/* Delete button */}
+                  <button
+                    onClick={() => handleDelete([item.id])}
+                    disabled={deleting}
+                    style={{
+                      marginTop: "4px",
+                      padding: "4px 8px",
+                      borderRadius: "3px",
+                      border: "1px solid #ef4444",
+                      backgroundColor: "white",
+                      color: "#ef4444",
+                      cursor: deleting ? "not-allowed" : "pointer",
+                      fontSize: "11px",
+                      width: "100%",
+                      opacity: deleting ? 0.6 : 1,
+                    }}
+                  >
+                    Delete
+                  </button>
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Confirmation Dialog */}
+        {deletionConfirm.open && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1000,
+            }}
+            onClick={handleCancelDelete}
+          >
+            <div
+              style={{
+                backgroundColor: "white",
+                padding: "24px",
+                borderRadius: "8px",
+                maxWidth: "400px",
+                width: "90%",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 style={{ margin: "0 0 16px 0", color: "#374151", fontSize: "18px" }}>Confirm Deletion</h2>
+              <p style={{ margin: "0 0 24px 0", color: "#6b7280", fontSize: "14px" }}>
+                Are you sure you want to delete {deletionConfirm.photoIds.length} photo{deletionConfirm.photoIds.length !== 1 ? "s" : ""}? This action cannot be undone.
+              </p>
+              <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                <button
+                  onClick={handleCancelDelete}
+                  disabled={deleting}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "4px",
+                    border: "1px solid #d1d5db",
+                    backgroundColor: "white",
+                    color: "#374151",
+                    cursor: deleting ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    opacity: deleting ? 0.6 : 1,
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  disabled={deleting}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "4px",
+                    border: "none",
+                    backgroundColor: "#ef4444",
+                    color: "white",
+                    cursor: deleting ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    opacity: deleting ? 0.6 : 1,
+                  }}
+                >
+                  {deleting ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
