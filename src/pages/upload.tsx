@@ -89,7 +89,7 @@ export default function UploadPage() {
 
       <input
         type="file"
-        accept="image/*,.heic,.heif"
+        accept="image/*"
         onChange={(e) => setFile(e.target.files?.[0] ?? null)}
       />
 

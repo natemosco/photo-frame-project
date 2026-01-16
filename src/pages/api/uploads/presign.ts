@@ -14,15 +14,7 @@ const BodySchema = z.object({
 });
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED_CONTENT_TYPES = [
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "image/heic",
-  "image/heif",
-];
+const ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
