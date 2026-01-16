@@ -18,6 +18,7 @@
     "@neondatabase/serverless": "^1.0.2",
     "drizzle-kit": "^0.31.8",
     "drizzle-orm": "^0.45.1",
+    "heic2any": "^0.0.4",
     "nanoid": "^5.1.6",
     "next": "16.1.1",
     "next-auth": "^4.24.13",
