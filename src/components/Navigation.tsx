@@ -1,6 +1,6 @@
-import Link from "next/link";
-import { useSession, signIn, signOut } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function Navigation() {
   const { data: session, status } = useSession();
@@ -17,28 +17,54 @@ export default function Navigation() {
       }}
     >
       <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
-        <Link href="/" style={{ textDecoration: "none", color: "#000", fontWeight: "bold", fontSize: "18px" }}>
+        <Link
+          href="/"
+          style={{ textDecoration: "none", color: "#000", fontWeight: "bold", fontSize: "18px" }}
+        >
           Photo Frame Project
         </Link>
         <div style={{ display: "flex", gap: "16px" }}>
-          <Link href="/" style={{ textDecoration: "none", color: "#374151", padding: "8px 12px", borderRadius: "4px" }}>
+          <Link
+            href="/"
+            style={{
+              textDecoration: "none",
+              color: "#374151",
+              padding: "8px 12px",
+              borderRadius: "4px",
+            }}
+          >
             Home
           </Link>
           <Link
             href="/gallery"
-            style={{ textDecoration: "none", color: "#374151", padding: "8px 12px", borderRadius: "4px" }}
+            style={{
+              textDecoration: "none",
+              color: "#374151",
+              padding: "8px 12px",
+              borderRadius: "4px",
+            }}
           >
             Gallery
           </Link>
           <Link
             href="/my-photos"
-            style={{ textDecoration: "none", color: "#374151", padding: "8px 12px", borderRadius: "4px" }}
+            style={{
+              textDecoration: "none",
+              color: "#374151",
+              padding: "8px 12px",
+              borderRadius: "4px",
+            }}
           >
             My Photos
           </Link>
           <Link
             href="/upload"
-            style={{ textDecoration: "none", color: "#374151", padding: "8px 12px", borderRadius: "4px" }}
+            style={{
+              textDecoration: "none",
+              color: "#374151",
+              padding: "8px 12px",
+              borderRadius: "4px",
+            }}
           >
             Upload
           </Link>
@@ -61,6 +87,7 @@ export default function Navigation() {
             )}
             <span style={{ color: "#374151", fontSize: "14px" }}>{session.user?.email}</span>
             <button
+              type="button"
               onClick={() => signOut()}
               style={{
                 backgroundColor: "#ef4444",
@@ -77,6 +104,7 @@ export default function Navigation() {
           </>
         ) : (
           <button
+            type="button"
             onClick={() => signIn("google")}
             style={{
               backgroundColor: "#3b82f6",

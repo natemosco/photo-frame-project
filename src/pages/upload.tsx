@@ -1,8 +1,8 @@
-import { useSession } from "next-auth/react";
-import { useState, useCallback, useRef } from "react";
-import Navigation from "../components/Navigation";
 import heic2any from "heic2any";
 import { nanoid } from "nanoid";
+import { useSession } from "next-auth/react";
+import { useCallback, useRef, useState } from "react";
+import Navigation from "../components/Navigation";
 
 type JobState = "queued" | "converting" | "uploading" | "done" | "error" | "skipped";
 
@@ -46,14 +46,12 @@ export default function UploadPage() {
   // Check if file is HEIC/HEIF
   const isHeicFile = (file: File): boolean => {
     return (
-      file.type === "image/heic" ||
-      file.type === "image/heif" ||
-      /\.(heic|heif)$/i.test(file.name)
+      file.type === "image/heic" || file.type === "image/heif" || /\.(heic|heif)$/i.test(file.name)
     );
   };
 
   // Convert HEIC to JPEG
-  const convertHeicToJpeg = async (file: File): Promise<File> => {
+  const convertHeicToJpeg = useCallback(async (file: File): Promise<File> => {
     try {
       const result = await heic2any({
         blob: file,
@@ -63,14 +61,15 @@ export default function UploadPage() {
 
       // heic2any can return an array or a single blob
       const blob = Array.isArray(result) ? result[0] : result;
-      
+
       // Create a new File object with JPEG extension
       const jpegFilename = file.name.replace(/\.(heic|heif)$/i, ".jpg");
       return new File([blob], jpegFilename, { type: "image/jpeg" });
-    } catch (error: any) {
-      throw new Error(`HEIC conversion failed: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`HEIC conversion failed: ${message}`);
     }
-  };
+  }, []);
 
   // Upload file to S3 and save metadata with progress tracking
   const processUpload = useCallback(async (jobId: string, fileToUpload: File) => {
@@ -78,9 +77,7 @@ export default function UploadPage() {
       // Update state to uploading if not already set
       setJobs((prev) =>
         prev.map((j) =>
-          j.id === jobId && j.state !== "uploading"
-            ? { ...j, state: "uploading", progress: 0 }
-            : j
+          j.id === jobId && j.state !== "uploading" ? { ...j, state: "uploading", progress: 0 } : j
         )
       );
 
@@ -110,9 +107,7 @@ export default function UploadPage() {
         xhr.upload.addEventListener("progress", (e) => {
           if (e.lengthComputable) {
             const progress = Math.round((e.loaded / e.total) * 90); // 90% for upload, 10% for metadata save
-            setJobs((prev) =>
-              prev.map((j) => (j.id === jobId ? { ...j, progress } : j))
-            );
+            setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, progress } : j)));
           }
         });
 
@@ -138,9 +133,7 @@ export default function UploadPage() {
       });
 
       // Update progress to 95% (upload complete, saving metadata)
-      setJobs((prev) =>
-        prev.map((j) => (j.id === jobId ? { ...j, progress: 95 } : j))
-      );
+      setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, progress: 95 } : j)));
 
       // Save metadata
       const metaRes = await fetch("/api/gallery/append", {
@@ -164,13 +157,12 @@ export default function UploadPage() {
       setJobs((prev) =>
         prev.map((j) => (j.id === jobId ? { ...j, state: "done", progress: 100 } : j))
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Update job state to error
+      const message = error instanceof Error ? error.message : String(error);
       setJobs((prev) =>
         prev.map((j) =>
-          j.id === jobId
-            ? { ...j, state: "error", error: error.message, progress: undefined }
-            : j
+          j.id === jobId ? { ...j, state: "error", error: message, progress: undefined } : j
         )
       );
     }
@@ -188,32 +180,23 @@ export default function UploadPage() {
       activeConversionsRef.current.add(job.id);
 
       // Update job state to converting
-      setJobs((prev) =>
-        prev.map((j) => (j.id === job.id ? { ...j, state: "converting" } : j))
-      );
+      setJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, state: "converting" } : j)));
 
       try {
         const convertedFile = await convertHeicToJpeg(job.file);
-        
+
         // Update job with converted file and move to uploading
         setJobs((prev) =>
-          prev.map((j) =>
-            j.id === job.id
-              ? { ...j, state: "uploading", convertedFile }
-              : j
-          )
+          prev.map((j) => (j.id === job.id ? { ...j, state: "uploading", convertedFile } : j))
         );
 
         // Start upload process
         processUpload(job.id, convertedFile);
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Update job with error
+        const message = error instanceof Error ? error.message : String(error);
         setJobs((prev) =>
-          prev.map((j) =>
-            j.id === job.id
-              ? { ...j, state: "error", error: error.message }
-              : j
-          )
+          prev.map((j) => (j.id === job.id ? { ...j, state: "error", error: message } : j))
         );
       } finally {
         activeConversionsRef.current.delete(job.id);
@@ -226,7 +209,7 @@ export default function UploadPage() {
     if (conversionQueueRef.current.length > 0) {
       setTimeout(() => processConversionQueue(), 100);
     }
-  }, [processUpload]);
+  }, [processUpload, convertHeicToJpeg]);
 
   // Handle file selection
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -235,7 +218,7 @@ export default function UploadPage() {
 
     // Create jobs for new files, avoiding duplicates (by filename + size)
     const existingKeys = new Set(jobs.map((j) => `${j.file.name}-${j.file.size}`));
-    
+
     const newJobs: UploadJob[] = files
       .filter((file) => !existingKeys.has(`${file.name}-${file.size}`))
       .map((file) => ({
@@ -249,7 +232,7 @@ export default function UploadPage() {
     setJobs((prev) => [...prev, ...newJobs]);
 
     // Process each job
-    newJobs.forEach((job) => {
+    for (const job of newJobs) {
       if (isHeicFile(job.file)) {
         // Add to conversion queue
         conversionQueueRef.current.push(job);
@@ -259,7 +242,7 @@ export default function UploadPage() {
         // State will be set to "uploading" in processUpload
         processUpload(job.id, job.file);
       }
-    });
+    }
   };
 
   // Get status display text
@@ -270,9 +253,7 @@ export default function UploadPage() {
       case "converting":
         return "Converting HEIC to JPEG...";
       case "uploading":
-        return job.progress !== undefined
-          ? `Uploading... ${job.progress}%`
-          : "Uploading...";
+        return job.progress !== undefined ? `Uploading... ${job.progress}%` : "Uploading...";
       case "done":
         return "? Uploaded";
       case "error":
@@ -291,7 +272,8 @@ export default function UploadPage() {
     if (converting > 0) {
       const total = converting + queued;
       return `Converting ${converting} of ${total} HEIC file${total !== 1 ? "s" : ""}...`;
-    } else if (queued > 0) {
+    }
+    if (queued > 0) {
       return `Waiting to convert ${queued} HEIC file${queued !== 1 ? "s" : ""}...`;
     }
     return "";
@@ -316,26 +298,31 @@ export default function UploadPage() {
       <div style={{ padding: 24 }}>
         <h1 style={{ marginTop: 16 }}>Upload photos (? 10MB each)</h1>
 
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleFileSelect}
-        />
+        <input type="file" accept="image/*" multiple onChange={handleFileSelect} />
 
         {jobs.length > 0 && (
           <div style={{ marginTop: 24 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
               <h2>Upload Queue ({jobs.length})</h2>
               <div>
                 <button
+                  type="button"
                   onClick={clearCompleted}
                   style={{ marginRight: 8 }}
                   disabled={!jobs.some((j) => j.state === "done")}
                 >
                   Clear Completed
                 </button>
-                <button onClick={clearAll}>Clear All</button>
+                <button type="button" onClick={clearAll}>
+                  Clear All
+                </button>
               </div>
             </div>
 
@@ -351,10 +338,18 @@ export default function UploadPage() {
                     padding: 12,
                     border: "1px solid #ddd",
                     borderRadius: 4,
-                    backgroundColor: job.state === "done" ? "#f0f9ff" : job.state === "error" ? "#fef2f2" : "#fff",
+                    backgroundColor:
+                      job.state === "done" ? "#f0f9ff" : job.state === "error" ? "#fef2f2" : "#fff",
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 8,
+                    }}
+                  >
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 500 }}>{job.file.name}</div>
                       <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>

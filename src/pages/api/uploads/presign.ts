@@ -1,11 +1,11 @@
-import type { NextApiRequest, NextApiResponse } from "next";
-import { z } from "zod";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../auth/[...nextauth]";
-import { getOrCreateUser } from "../../../lib/user";
 import { nanoid } from "nanoid";
+import type { NextApiRequest, NextApiResponse } from "next";
+import { getServerSession } from "next-auth/next";
+import { z } from "zod";
+import { getOrCreateUser } from "../../../lib/user";
+import { authOptions } from "../auth/[...nextauth]";
 
 const BodySchema = z.object({
   filename: z.string().min(1),
@@ -35,7 +35,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // Validate file size
   if (size > MAX_FILE_SIZE) {
-    return res.status(400).json({ error: `File size exceeds maximum of ${MAX_FILE_SIZE / 1024 / 1024}MB` });
+    return res
+      .status(400)
+      .json({ error: `File size exceeds maximum of ${MAX_FILE_SIZE / 1024 / 1024}MB` });
   }
 
   // Validate content type
@@ -79,8 +81,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       key: s3Key,
       publicUrl,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Presign error:", error);
-    return res.status(500).json({ error: "Failed to generate presigned URL", message: error.message });
+    const message = error instanceof Error ? error.message : String(error);
+    return res.status(500).json({ error: "Failed to generate presigned URL", message });
   }
 }

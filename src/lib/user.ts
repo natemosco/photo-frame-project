@@ -1,8 +1,8 @@
-import { db } from "../db";
-import { users } from "../db/schema";
 import { eq } from "drizzle-orm";
 import type { Session } from "next-auth";
-import type { User as NextAuthUser, Account as NextAuthAccount } from "next-auth";
+import type { Account as NextAuthAccount, User as NextAuthUser } from "next-auth";
+import { db } from "../db";
+import { users } from "../db/schema";
 
 /**
  * Sync user from NextAuth callback data to database.

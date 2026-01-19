@@ -1,12 +1,12 @@
+import { DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { and, eq, inArray } from "drizzle-orm";
 import type { NextApiRequest, NextApiResponse } from "next";
+import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 import { db } from "../../../db";
 import { photos } from "../../../db/schema";
-import { eq, and, inArray } from "drizzle-orm";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../auth/[...nextauth]";
 import { getOrCreateUser } from "../../../lib/user";
-import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { authOptions } from "../auth/[...nextauth]";
 
 const DeleteSchema = z.object({
   photoIds: z.array(z.string().uuid()).min(1),
@@ -63,7 +63,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const photoIdsToDelete = photosToDelete.map((photo) => photo.id);
 
     // Delete photos from database in a single transaction
-    await db.delete(photos).where(and(eq(photos.userId, userId), inArray(photos.id, photoIdsToDelete)));
+    await db
+      .delete(photos)
+      .where(and(eq(photos.userId, userId), inArray(photos.id, photoIdsToDelete)));
 
     // Delete files from S3
     const s3 = new S3Client({ region: process.env.AWS_REGION });
@@ -107,11 +109,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       deleted: photoIdsToDelete.length,
       message: "Photos deleted successfully",
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Failed to delete photos:", error);
+    const message = error instanceof Error ? error.message : String(error);
     return res.status(500).json({
       error: "Failed to delete photos",
-      message: error.message,
+      message,
     });
   }
 }

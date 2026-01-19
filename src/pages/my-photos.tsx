@@ -1,5 +1,5 @@
+import { signIn, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
-import { useSession, signIn } from "next-auth/react";
 import Navigation from "../components/Navigation";
 
 type PhotoItem = {
@@ -59,7 +59,7 @@ export default function MyPhotosPage() {
   // Clear selection when filter changes
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [filter]);
+  }, []);
 
   async function handleToggleShare(photoId: string) {
     if (toggling) return;
@@ -80,7 +80,9 @@ export default function MyPhotosPage() {
 
       // Update the photo in the items array
       setItems((prev) =>
-        prev.map((item) => (item.id === photoId ? { ...item, isShared: data.photo.isShared } : item))
+        prev.map((item) =>
+          item.id === photoId ? { ...item, isShared: data.photo.isShared } : item
+        )
       );
     } catch (error) {
       setErr("Failed to toggle share status");
@@ -109,9 +111,7 @@ export default function MyPhotosPage() {
       // Update all affected photos in the items array
       const updatedIds = new Set(data.photos.map((p: { id: string }) => p.id));
       setItems((prev) =>
-        prev.map((item) =>
-          updatedIds.has(item.id) ? { ...item, isShared } : item
-        )
+        prev.map((item) => (updatedIds.has(item.id) ? { ...item, isShared } : item))
       );
 
       // Clear selection
@@ -172,7 +172,9 @@ export default function MyPhotosPage() {
       // Clear selection if any deleted photos were selected
       setSelectedIds((prev) => {
         const next = new Set(prev);
-        deletionConfirm.photoIds.forEach((id) => next.delete(id));
+        for (const id of deletionConfirm.photoIds) {
+          next.delete(id);
+        }
         return next;
       });
 
@@ -206,6 +208,7 @@ export default function MyPhotosPage() {
           <h1>My Photos</h1>
           <p>Please sign in to view your photos.</p>
           <button
+            type="button"
             onClick={() => signIn("google")}
             style={{
               backgroundColor: "#3b82f6",
@@ -228,10 +231,18 @@ export default function MyPhotosPage() {
     <>
       <Navigation />
       <div style={{ padding: 24 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "24px",
+          }}
+        >
           <h1 style={{ margin: 0 }}>My Photos</h1>
           {items.length > 0 && (
             <button
+              type="button"
               onClick={handleSelectAll}
               style={{
                 padding: "8px 16px",
@@ -268,6 +279,7 @@ export default function MyPhotosPage() {
             </span>
             <div style={{ display: "flex", gap: "8px" }}>
               <button
+                type="button"
                 onClick={() => handleBulkToggleShare(true)}
                 disabled={toggling}
                 style={{
@@ -284,6 +296,7 @@ export default function MyPhotosPage() {
                 Share All
               </button>
               <button
+                type="button"
                 onClick={() => handleBulkToggleShare(false)}
                 disabled={toggling || deleting}
                 style={{
@@ -300,6 +313,7 @@ export default function MyPhotosPage() {
                 Make Private
               </button>
               <button
+                type="button"
                 onClick={() => handleDelete(Array.from(selectedIds))}
                 disabled={deleting || toggling}
                 style={{
@@ -316,6 +330,7 @@ export default function MyPhotosPage() {
                 Delete Selected
               </button>
               <button
+                type="button"
                 onClick={() => setSelectedIds(new Set())}
                 disabled={toggling || deleting}
                 style={{
@@ -338,6 +353,7 @@ export default function MyPhotosPage() {
         {/* Filter buttons */}
         <div style={{ display: "flex", gap: "8px", marginBottom: "24px", flexWrap: "wrap" }}>
           <button
+            type="button"
             onClick={() => setFilter("all")}
             style={{
               padding: "8px 16px",
@@ -352,6 +368,7 @@ export default function MyPhotosPage() {
             All
           </button>
           <button
+            type="button"
             onClick={() => setFilter("shared")}
             style={{
               padding: "8px 16px",
@@ -366,6 +383,7 @@ export default function MyPhotosPage() {
             Shared
           </button>
           <button
+            type="button"
             onClick={() => setFilter("unshared")}
             style={{
               padding: "8px 16px",
@@ -388,7 +406,13 @@ export default function MyPhotosPage() {
         ) : items.length === 0 ? (
           <p style={{ color: "#6b7280" }}>No photos found.</p>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+              gap: 12,
+            }}
+          >
             {items.map((item) => {
               const isSelected = selectedIds.has(item.id);
               return (
@@ -417,8 +441,19 @@ export default function MyPhotosPage() {
                     style={{ width: "100%", height: 180, objectFit: "cover" }}
                     loading="lazy"
                   />
-                  <div style={{ fontSize: 12, marginTop: 6 }}>{new Date(item.uploadedAt).toLocaleString()}</div>
-                  <div style={{ fontSize: 11, marginTop: 4, display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                  <div style={{ fontSize: 12, marginTop: 6 }}>
+                    {new Date(item.uploadedAt).toLocaleString()}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      marginTop: 4,
+                      display: "flex",
+                      gap: "8px",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                  >
                     <span
                       style={{
                         padding: "2px 6px",
@@ -431,11 +466,14 @@ export default function MyPhotosPage() {
                       {item.isShared ? "Shared" : "Private"}
                     </span>
                     {item.frameId && (
-                      <span style={{ fontSize: "10px", color: "#6b7280" }}>Frame: {item.frameId}</span>
+                      <span style={{ fontSize: "10px", color: "#6b7280" }}>
+                        Frame: {item.frameId}
+                      </span>
                     )}
                   </div>
                   {/* Toggle button */}
                   <button
+                    type="button"
                     onClick={() => handleToggleShare(item.id)}
                     disabled={toggling || deleting}
                     style={{
@@ -455,6 +493,7 @@ export default function MyPhotosPage() {
                   </button>
                   {/* Delete button */}
                   <button
+                    type="button"
                     onClick={() => handleDelete([item.id])}
                     disabled={deleting}
                     style={{
@@ -494,6 +533,11 @@ export default function MyPhotosPage() {
               zIndex: 1000,
             }}
             onClick={handleCancelDelete}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                handleCancelDelete();
+              }
+            }}
           >
             <div
               style={{
@@ -505,13 +549,20 @@ export default function MyPhotosPage() {
                 boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
               }}
               onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+              }}
             >
-              <h2 style={{ margin: "0 0 16px 0", color: "#374151", fontSize: "18px" }}>Confirm Deletion</h2>
+              <h2 style={{ margin: "0 0 16px 0", color: "#374151", fontSize: "18px" }}>
+                Confirm Deletion
+              </h2>
               <p style={{ margin: "0 0 24px 0", color: "#6b7280", fontSize: "14px" }}>
-                Are you sure you want to delete {deletionConfirm.photoIds.length} photo{deletionConfirm.photoIds.length !== 1 ? "s" : ""}? This action cannot be undone.
+                Are you sure you want to delete {deletionConfirm.photoIds.length} photo
+                {deletionConfirm.photoIds.length !== 1 ? "s" : ""}? This action cannot be undone.
               </p>
               <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
                 <button
+                  type="button"
                   onClick={handleCancelDelete}
                   disabled={deleting}
                   style={{
@@ -528,6 +579,7 @@ export default function MyPhotosPage() {
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={handleConfirmDelete}
                   disabled={deleting}
                   style={{

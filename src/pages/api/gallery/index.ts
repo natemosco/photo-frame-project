@@ -1,9 +1,9 @@
+import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { desc, eq } from "drizzle-orm";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { db } from "../../../db";
 import { photos, users } from "../../../db/schema";
-import { eq, desc } from "drizzle-orm";
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
@@ -53,8 +53,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     );
 
     return res.status(200).json({ items });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Failed to fetch gallery photos:", error);
-    return res.status(500).json({ error: "Failed to fetch gallery photos", message: error.message });
+    const message = error instanceof Error ? error.message : String(error);
+    return res.status(500).json({ error: "Failed to fetch gallery photos", message });
   }
 }
