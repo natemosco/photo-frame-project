@@ -1,7 +1,9 @@
 import { nanoid } from "nanoid";
-import { useSession } from "next-auth/react";
+import type { GetServerSideProps } from "next";
+import { getServerSession } from "next-auth/next";
 import { useCallback, useRef, useState } from "react";
 import Navigation from "../components/Navigation";
+import { authOptions } from "./api/auth/[...nextauth]";
 
 type JobState = "queued" | "converting" | "uploading" | "done" | "error" | "skipped";
 
@@ -15,32 +17,10 @@ interface UploadJob {
 }
 
 export default function UploadPage() {
-  const { data: session, status } = useSession();
   const [jobs, setJobs] = useState<UploadJob[]>([]);
   const activeConversionsRef = useRef<Set<string>>(new Set());
   const conversionQueueRef = useRef<UploadJob[]>([]);
   const processingRef = useRef(false);
-
-  if (status === "loading") {
-    return (
-      <>
-        <Navigation />
-        <div style={{ padding: 24 }}>Loading?</div>
-      </>
-    );
-  }
-
-  if (!session) {
-    return (
-      <>
-        <Navigation />
-        <div style={{ padding: 24 }}>
-          <h1>Upload</h1>
-          <p>Please sign in to upload photos.</p>
-        </div>
-      </>
-    );
-  }
 
   // Check if file is HEIC/HEIF
   const isHeicFile = (file: File): boolean => {
@@ -570,3 +550,20 @@ export default function UploadPage() {
     </>
   );
 }
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const session = await getServerSession(context.req, context.res, authOptions);
+
+  if (!session) {
+    return {
+      redirect: {
+        destination: "/",
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: {},
+  };
+};

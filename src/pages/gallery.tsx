@@ -1,5 +1,8 @@
+import type { GetServerSideProps } from "next";
+import { getServerSession } from "next-auth/next";
 import { useEffect, useState } from "react";
 import Navigation from "../components/Navigation";
+import { authOptions } from "./api/auth/[...nextauth]";
 
 type GalleryItem = {
   key: string;
@@ -179,3 +182,20 @@ export default function GalleryPage() {
     </>
   );
 }
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const session = await getServerSession(context.req, context.res, authOptions);
+
+  if (!session) {
+    return {
+      redirect: {
+        destination: "/",
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: {},
+  };
+};
