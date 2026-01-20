@@ -192,9 +192,8 @@ export default function UploadPage() {
     }
   }, [processUpload, convertHeicToJpeg]);
 
-  // Handle file selection
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+  // Process files (used by both file input and drag-drop)
+  const processFiles = (files: File[]) => {
     if (files.length === 0) return;
 
     // Create jobs for new files, avoiding duplicates (by filename + size)
@@ -224,6 +223,12 @@ export default function UploadPage() {
         processUpload(job.id, job.file);
       }
     }
+  };
+
+  // Handle file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    processFiles(files);
   };
 
   // Get status display text
@@ -327,6 +332,10 @@ export default function UploadPage() {
               e.preventDefault();
               e.currentTarget.style.borderColor = "#cbd5e1";
               e.currentTarget.style.backgroundColor = "rgba(99, 102, 241, 0.02)";
+              
+              // Extract files from drop event
+              const files = Array.from(e.dataTransfer.files || []);
+              processFiles(files);
             }}
           >
             <div style={{ fontSize: "3rem", marginBottom: "16px" }}>📤</div>
