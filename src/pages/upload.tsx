@@ -1,4 +1,3 @@
-import heic2any from "heic2any";
 import { nanoid } from "nanoid";
 import { useSession } from "next-auth/react";
 import { useCallback, useRef, useState } from "react";
@@ -53,6 +52,8 @@ export default function UploadPage() {
   // Convert HEIC to JPEG
   const convertHeicToJpeg = useCallback(async (file: File): Promise<File> => {
     try {
+      // Dynamically import heic2any only when needed (client-side only)
+      const heic2any = (await import("heic2any")).default;
       const result = await heic2any({
         blob: file,
         toType: "image/jpeg",
