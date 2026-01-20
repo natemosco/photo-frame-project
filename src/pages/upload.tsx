@@ -332,7 +332,7 @@ export default function UploadPage() {
               e.preventDefault();
               e.currentTarget.style.borderColor = "#cbd5e1";
               e.currentTarget.style.backgroundColor = "rgba(99, 102, 241, 0.02)";
-              
+
               // Extract files from drop event
               const files = Array.from(e.dataTransfer.files || []);
               processFiles(files);
