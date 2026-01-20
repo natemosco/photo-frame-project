@@ -557,7 +557,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   if (!session) {
     return {
       redirect: {
-        destination: "/",
+        destination: "/?authRequired=true",
         permanent: false,
       },
     };
