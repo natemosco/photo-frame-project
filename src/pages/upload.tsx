@@ -296,113 +296,276 @@ export default function UploadPage() {
   return (
     <>
       <Navigation />
-      <div style={{ padding: 24 }}>
-        <h1 style={{ marginTop: 16 }}>Upload photos (? 10MB each)</h1>
+      <div
+        style={{
+          padding: "32px 24px",
+          maxWidth: "1000px",
+          margin: "0 auto",
+          minHeight: "calc(100vh - 80px)",
+        }}
+      >
+        <div className="fade-in">
+          <h1
+            style={{
+              fontSize: "clamp(2rem, 4vw, 3rem)",
+              marginBottom: "8px",
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+              fontWeight: "800",
+              letterSpacing: "-1px",
+            }}
+          >
+            Upload Photos
+          </h1>
+          <p style={{ fontSize: "1.125rem", color: "#6b7280", marginBottom: "32px" }}>
+            Upload your photos (max 10MB each). HEIC/HEIF files will be automatically converted to
+            JPEG.
+          </p>
 
-        <input type="file" accept="image/*" multiple onChange={handleFileSelect} />
-
-        {jobs.length > 0 && (
-          <div style={{ marginTop: 24 }}>
-            <div
+          <div
+            style={{
+              border: "2px dashed #cbd5e1",
+              borderRadius: "12px",
+              padding: "48px 24px",
+              textAlign: "center",
+              backgroundColor: "rgba(99, 102, 241, 0.02)",
+              transition: "all 0.3s ease",
+              marginBottom: "32px",
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.currentTarget.style.borderColor = "#6366f1";
+              e.currentTarget.style.backgroundColor = "rgba(99, 102, 241, 0.05)";
+            }}
+            onDragLeave={(e) => {
+              e.currentTarget.style.borderColor = "#cbd5e1";
+              e.currentTarget.style.backgroundColor = "rgba(99, 102, 241, 0.02)";
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.currentTarget.style.borderColor = "#cbd5e1";
+              e.currentTarget.style.backgroundColor = "rgba(99, 102, 241, 0.02)";
+            }}
+          >
+            <div style={{ fontSize: "3rem", marginBottom: "16px" }}>📤</div>
+            <p style={{ fontSize: "1.125rem", fontWeight: "600", marginBottom: "8px" }}>
+              Drop your photos here
+            </p>
+            <p style={{ fontSize: "0.875rem", color: "#6b7280", marginBottom: "24px" }}>
+              or click to browse
+            </p>
+            <label
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 12,
+                display: "inline-block",
+                background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                color: "white",
+                padding: "12px 32px",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontSize: "16px",
+                fontWeight: "600",
+                boxShadow: "0 4px 12px rgba(99, 102, 241, 0.4)",
+                transition: "all 0.3s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 8px 20px rgba(99, 102, 241, 0.5)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.4)";
               }}
             >
-              <h2>Upload Queue ({jobs.length})</h2>
-              <div>
-                <button
-                  type="button"
-                  onClick={clearCompleted}
-                  style={{ marginRight: 8 }}
-                  disabled={!jobs.some((j) => j.state === "done")}
-                >
-                  Clear Completed
-                </button>
-                <button type="button" onClick={clearAll}>
-                  Clear All
-                </button>
-              </div>
-            </div>
+              Select Files
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleFileSelect}
+                style={{ display: "none" }}
+              />
+            </label>
+          </div>
 
-            {getConversionStatus() && (
-              <p style={{ marginBottom: 12, color: "#666" }}>{getConversionStatus()}</p>
-            )}
-
-            <div style={{ display: "grid", gap: 12 }}>
-              {jobs.map((job) => (
-                <div
-                  key={job.id}
+          {jobs.length > 0 && (
+            <div className="fade-in" style={{ marginTop: "32px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "20px",
+                  flexWrap: "wrap",
+                  gap: "16px",
+                }}
+              >
+                <h2
                   style={{
-                    padding: 12,
-                    border: "1px solid #ddd",
-                    borderRadius: 4,
-                    backgroundColor:
-                      job.state === "done" ? "#f0f9ff" : job.state === "error" ? "#fef2f2" : "#fff",
+                    fontSize: "1.5rem",
+                    fontWeight: "700",
+                    margin: 0,
+                    color: "#1f2937",
                   }}
                 >
-                  <div
+                  Upload Queue ({jobs.length})
+                </h2>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={clearCompleted}
+                    disabled={!jobs.some((j) => j.state === "done")}
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: 8,
+                      padding: "8px 20px",
+                      borderRadius: "8px",
+                      border: "1px solid #d1d5db",
+                      backgroundColor: "white",
+                      color: "#374151",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!e.currentTarget.disabled) {
+                        e.currentTarget.style.backgroundColor = "#f3f4f6";
+                        e.currentTarget.style.borderColor = "#9ca3af";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!e.currentTarget.disabled) {
+                        e.currentTarget.style.backgroundColor = "white";
+                        e.currentTarget.style.borderColor = "#d1d5db";
+                      }
                     }}
                   >
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 500 }}>{job.file.name}</div>
-                      <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
-                        {getStatusText(job)}
+                    Clear Completed
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearAll}
+                    style={{
+                      padding: "8px 20px",
+                      borderRadius: "8px",
+                      border: "1px solid #ef4444",
+                      backgroundColor: "white",
+                      color: "#ef4444",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "#fef2f2";
+                      e.currentTarget.style.borderColor = "#dc2626";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "white";
+                      e.currentTarget.style.borderColor = "#ef4444";
+                    }}
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+
+              {getConversionStatus() && (
+                <div
+                  style={{
+                    padding: "12px 16px",
+                    backgroundColor: "rgba(99, 102, 241, 0.1)",
+                    borderRadius: "8px",
+                    marginBottom: "20px",
+                    color: "#6366f1",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                  }}
+                >
+                  {getConversionStatus()}
+                </div>
+              )}
+
+              <div style={{ display: "grid", gap: "16px" }}>
+                {jobs.map((job) => (
+                  <div
+                    key={job.id}
+                    className="card fade-in"
+                    style={{
+                      padding: "20px",
+                      border: "none",
+                      backgroundColor:
+                        job.state === "done"
+                          ? "rgba(16, 185, 129, 0.1)"
+                          : job.state === "error"
+                            ? "rgba(239, 68, 68, 0.1)"
+                            : "#fff",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 8,
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 500 }}>{job.file.name}</div>
+                        <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
+                          {getStatusText(job)}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 12, color: "#999", marginLeft: 16 }}>
+                        {(job.file.size / 1024 / 1024).toFixed(2)} MB
                       </div>
                     </div>
-                    <div style={{ fontSize: 12, color: "#999", marginLeft: 16 }}>
-                      {(job.file.size / 1024 / 1024).toFixed(2)} MB
-                    </div>
-                  </div>
-                  {/* Progress bar for uploading state */}
-                  {job.state === "uploading" && job.progress !== undefined && (
-                    <div
-                      style={{
-                        width: "100%",
-                        height: 6,
-                        backgroundColor: "#e5e7eb",
-                        borderRadius: 3,
-                        overflow: "hidden",
-                        marginTop: 8,
-                      }}
-                    >
+                    {/* Progress bar for uploading state */}
+                    {job.state === "uploading" && job.progress !== undefined && (
                       <div
                         style={{
-                          width: `${job.progress}%`,
-                          height: "100%",
-                          backgroundColor: "#3b82f6",
-                          transition: "width 0.3s ease",
+                          width: "100%",
+                          height: "8px",
+                          backgroundColor: "#e5e7eb",
+                          borderRadius: "4px",
+                          overflow: "hidden",
+                          marginTop: "12px",
                         }}
-                      />
-                    </div>
-                  )}
-                  {/* Error message display */}
-                  {job.state === "error" && job.error && (
-                    <div
-                      style={{
-                        marginTop: 8,
-                        padding: 8,
-                        backgroundColor: "#fee2e2",
-                        borderRadius: 4,
-                        fontSize: 12,
-                        color: "#991b1b",
-                      }}
-                    >
-                      {job.error}
-                    </div>
-                  )}
-                </div>
-              ))}
+                      >
+                        <div
+                          style={{
+                            width: `${job.progress}%`,
+                            height: "100%",
+                            background: "linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%)",
+                            transition: "width 0.3s ease",
+                            borderRadius: "4px",
+                          }}
+                        />
+                      </div>
+                    )}
+                    {/* Error message display */}
+                    {job.state === "error" && job.error && (
+                      <div
+                        style={{
+                          marginTop: "12px",
+                          padding: "12px",
+                          backgroundColor: "#fee2e2",
+                          border: "1px solid #fecaca",
+                          borderRadius: "8px",
+                          fontSize: "14px",
+                          color: "#991b1b",
+                          fontWeight: "500",
+                        }}
+                      >
+                        ⚠️ {job.error}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </>
   );

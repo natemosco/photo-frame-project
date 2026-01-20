@@ -195,7 +195,17 @@ export default function MyPhotosPage() {
     return (
       <>
         <Navigation />
-        <div style={{ padding: 24 }}>Loading…</div>
+        <div
+          style={{
+            padding: "48px 24px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            minHeight: "calc(100vh - 80px)",
+          }}
+        >
+          <div className="spinner" style={{ width: "40px", height: "40px" }} />
+        </div>
       </>
     );
   }
@@ -204,24 +214,64 @@ export default function MyPhotosPage() {
     return (
       <>
         <Navigation />
-        <div style={{ padding: 24 }}>
-          <h1>My Photos</h1>
-          <p>Please sign in to view your photos.</p>
-          <button
-            type="button"
-            onClick={() => signIn("google")}
-            style={{
-              backgroundColor: "#3b82f6",
-              color: "white",
-              padding: "10px 20px",
-              borderRadius: "4px",
-              border: "none",
-              cursor: "pointer",
-              marginTop: "12px",
-            }}
-          >
-            Sign in with Google
-          </button>
+        <div
+          style={{
+            padding: "48px 24px",
+            maxWidth: "600px",
+            margin: "0 auto",
+            textAlign: "center",
+            minHeight: "calc(100vh - 80px)",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <div className="fade-in">
+            <h1
+              style={{
+                fontSize: "clamp(2rem, 4vw, 3rem)",
+                marginBottom: "16px",
+                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+                fontWeight: "800",
+                letterSpacing: "-1px",
+              }}
+            >
+              My Photos
+            </h1>
+            <p style={{ fontSize: "1.125rem", color: "#6b7280", marginBottom: "32px" }}>
+              Please sign in to view your photos.
+            </p>
+            <button
+              type="button"
+              onClick={() => signIn("google")}
+              style={{
+                background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                color: "white",
+                padding: "14px 32px",
+                borderRadius: "8px",
+                border: "none",
+                cursor: "pointer",
+                fontSize: "16px",
+                fontWeight: "600",
+                boxShadow: "0 4px 12px rgba(99, 102, 241, 0.4)",
+                transition: "all 0.3s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 8px 20px rgba(99, 102, 241, 0.5)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.4)";
+              }}
+            >
+              Sign in with Google
+            </button>
+          </div>
         </div>
       </>
     );
@@ -230,375 +280,682 @@ export default function MyPhotosPage() {
   return (
     <>
       <Navigation />
-      <div style={{ padding: 24 }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "24px",
-          }}
-        >
-          <h1 style={{ margin: 0 }}>My Photos</h1>
-          {items.length > 0 && (
-            <button
-              type="button"
-              onClick={handleSelectAll}
-              style={{
-                padding: "8px 16px",
-                borderRadius: "4px",
-                border: "1px solid #d1d5db",
-                backgroundColor: "white",
-                color: "#374151",
-                cursor: "pointer",
-                fontSize: "14px",
-              }}
-            >
-              {selectedIds.size === items.length ? "Deselect All" : "Select All"}
-            </button>
-          )}
-        </div>
-
-        {/* Bulk Actions Bar */}
-        {selectedIds.size > 0 && (
+      <div
+        style={{
+          padding: "32px 24px",
+          maxWidth: "1400px",
+          margin: "0 auto",
+          minHeight: "calc(100vh - 80px)",
+        }}
+      >
+        <div className="fade-in">
           <div
             style={{
-              padding: "12px 16px",
-              backgroundColor: "#f3f4f6",
-              borderRadius: "4px",
-              marginBottom: "24px",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
+              marginBottom: "32px",
               flexWrap: "wrap",
-              gap: "8px",
+              gap: "16px",
             }}
           >
-            <span style={{ fontSize: "14px", color: "#374151" }}>
-              {selectedIds.size} photo{selectedIds.size !== 1 ? "s" : ""} selected
-            </span>
-            <div style={{ display: "flex", gap: "8px" }}>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: "clamp(2rem, 4vw, 3rem)",
+                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+                fontWeight: "800",
+                letterSpacing: "-1px",
+              }}
+            >
+              My Photos
+            </h1>
+            {items.length > 0 && (
               <button
                 type="button"
-                onClick={() => handleBulkToggleShare(true)}
-                disabled={toggling}
+                onClick={handleSelectAll}
                 style={{
-                  padding: "8px 16px",
-                  borderRadius: "4px",
-                  border: "none",
-                  backgroundColor: "#10b981",
-                  color: "white",
-                  cursor: toggling ? "not-allowed" : "pointer",
-                  fontSize: "14px",
-                  opacity: toggling ? 0.6 : 1,
-                }}
-              >
-                Share All
-              </button>
-              <button
-                type="button"
-                onClick={() => handleBulkToggleShare(false)}
-                disabled={toggling || deleting}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "4px",
-                  border: "none",
-                  backgroundColor: "#6b7280",
-                  color: "white",
-                  cursor: toggling || deleting ? "not-allowed" : "pointer",
-                  fontSize: "14px",
-                  opacity: toggling || deleting ? 0.6 : 1,
-                }}
-              >
-                Make Private
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDelete(Array.from(selectedIds))}
-                disabled={deleting || toggling}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "4px",
-                  border: "none",
-                  backgroundColor: "#ef4444",
-                  color: "white",
-                  cursor: deleting || toggling ? "not-allowed" : "pointer",
-                  fontSize: "14px",
-                  opacity: deleting || toggling ? 0.6 : 1,
-                }}
-              >
-                Delete Selected
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedIds(new Set())}
-                disabled={toggling || deleting}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "4px",
+                  padding: "10px 20px",
+                  borderRadius: "8px",
                   border: "1px solid #d1d5db",
                   backgroundColor: "white",
                   color: "#374151",
-                  cursor: toggling || deleting ? "not-allowed" : "pointer",
+                  cursor: "pointer",
                   fontSize: "14px",
-                  opacity: toggling || deleting ? 0.6 : 1,
+                  fontWeight: "600",
+                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#f3f4f6";
+                  e.currentTarget.style.borderColor = "#9ca3af";
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "white";
+                  e.currentTarget.style.borderColor = "#d1d5db";
+                  e.currentTarget.style.transform = "translateY(0)";
                 }}
               >
-                Cancel
+                {selectedIds.size === items.length ? "Deselect All" : "Select All"}
               </button>
-            </div>
+            )}
           </div>
-        )}
 
-        {/* Filter buttons */}
-        <div style={{ display: "flex", gap: "8px", marginBottom: "24px", flexWrap: "wrap" }}>
-          <button
-            type="button"
-            onClick={() => setFilter("all")}
-            style={{
-              padding: "8px 16px",
-              borderRadius: "4px",
-              border: "1px solid #d1d5db",
-              backgroundColor: filter === "all" ? "#3b82f6" : "white",
-              color: filter === "all" ? "white" : "#374151",
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
-          >
-            All
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter("shared")}
-            style={{
-              padding: "8px 16px",
-              borderRadius: "4px",
-              border: "1px solid #d1d5db",
-              backgroundColor: filter === "shared" ? "#3b82f6" : "white",
-              color: filter === "shared" ? "white" : "#374151",
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
-          >
-            Shared
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter("unshared")}
-            style={{
-              padding: "8px 16px",
-              borderRadius: "4px",
-              border: "1px solid #d1d5db",
-              backgroundColor: filter === "unshared" ? "#3b82f6" : "white",
-              color: filter === "unshared" ? "white" : "#374151",
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
-          >
-            Unshared
-          </button>
-        </div>
-
-        {err && <p style={{ color: "#ef4444" }}>{err}</p>}
-
-        {loading ? (
-          <p>Loading photos...</p>
-        ) : items.length === 0 ? (
-          <p style={{ color: "#6b7280" }}>No photos found.</p>
-        ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-              gap: 12,
-            }}
-          >
-            {items.map((item) => {
-              const isSelected = selectedIds.has(item.id);
-              return (
-                <div
-                  key={item.id}
-                  style={{
-                    border: isSelected ? "2px solid #3b82f6" : "1px solid #ddd",
-                    padding: 8,
-                    position: "relative",
-                    backgroundColor: isSelected ? "#eff6ff" : "white",
-                  }}
-                >
-                  {/* Checkbox */}
-                  <div style={{ position: "absolute", top: 8, left: 8, zIndex: 1 }}>
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => handleSelectPhoto(item.id)}
-                      style={{ width: "18px", height: "18px", cursor: "pointer" }}
-                    />
-                  </div>
-
-                  <img
-                    src={item.publicUrl}
-                    alt={item.filename}
-                    style={{ width: "100%", height: 180, objectFit: "cover" }}
-                    loading="lazy"
-                  />
-                  <div style={{ fontSize: 12, marginTop: 6 }}>
-                    {new Date(item.uploadedAt).toLocaleString()}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      marginTop: 4,
-                      display: "flex",
-                      gap: "8px",
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <span
-                      style={{
-                        padding: "2px 6px",
-                        borderRadius: "3px",
-                        backgroundColor: item.isShared ? "#10b981" : "#6b7280",
-                        color: "white",
-                        fontSize: "10px",
-                      }}
-                    >
-                      {item.isShared ? "Shared" : "Private"}
-                    </span>
-                    {item.frameId && (
-                      <span style={{ fontSize: "10px", color: "#6b7280" }}>
-                        Frame: {item.frameId}
-                      </span>
-                    )}
-                  </div>
-                  {/* Toggle button */}
-                  <button
-                    type="button"
-                    onClick={() => handleToggleShare(item.id)}
-                    disabled={toggling || deleting}
-                    style={{
-                      marginTop: "8px",
-                      padding: "4px 8px",
-                      borderRadius: "3px",
-                      border: "1px solid #d1d5db",
-                      backgroundColor: "white",
-                      color: "#374151",
-                      cursor: toggling || deleting ? "not-allowed" : "pointer",
-                      fontSize: "11px",
-                      width: "100%",
-                      opacity: toggling || deleting ? 0.6 : 1,
-                    }}
-                  >
-                    {item.isShared ? "Make Private" : "Share"}
-                  </button>
-                  {/* Delete button */}
-                  <button
-                    type="button"
-                    onClick={() => handleDelete([item.id])}
-                    disabled={deleting}
-                    style={{
-                      marginTop: "4px",
-                      padding: "4px 8px",
-                      borderRadius: "3px",
-                      border: "1px solid #ef4444",
-                      backgroundColor: "white",
-                      color: "#ef4444",
-                      cursor: deleting ? "not-allowed" : "pointer",
-                      fontSize: "11px",
-                      width: "100%",
-                      opacity: deleting ? 0.6 : 1,
-                    }}
-                  >
-                    Delete
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Confirmation Dialog */}
-        {deletionConfirm.open && (
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(0, 0, 0, 0.5)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 1000,
-            }}
-            onClick={handleCancelDelete}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                handleCancelDelete();
-              }
-            }}
-          >
+          {/* Bulk Actions Bar */}
+          {selectedIds.size > 0 && (
             <div
+              className="fade-in"
               style={{
-                backgroundColor: "white",
-                padding: "24px",
-                borderRadius: "8px",
-                maxWidth: "400px",
-                width: "90%",
-                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-              }}
-              onClick={(e) => e.stopPropagation()}
-              onKeyDown={(e) => {
-                e.stopPropagation();
+                padding: "16px 20px",
+                background:
+                  "linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)",
+                borderRadius: "12px",
+                marginBottom: "32px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "12px",
+                border: "1px solid rgba(99, 102, 241, 0.2)",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.05)",
               }}
             >
-              <h2 style={{ margin: "0 0 16px 0", color: "#374151", fontSize: "18px" }}>
-                Confirm Deletion
-              </h2>
-              <p style={{ margin: "0 0 24px 0", color: "#6b7280", fontSize: "14px" }}>
-                Are you sure you want to delete {deletionConfirm.photoIds.length} photo
-                {deletionConfirm.photoIds.length !== 1 ? "s" : ""}? This action cannot be undone.
-              </p>
-              <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+              <span
+                style={{
+                  fontSize: "16px",
+                  color: "#1f2937",
+                  fontWeight: "600",
+                }}
+              >
+                {selectedIds.size} photo{selectedIds.size !== 1 ? "s" : ""} selected
+              </span>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                 <button
                   type="button"
-                  onClick={handleCancelDelete}
-                  disabled={deleting}
+                  onClick={() => handleBulkToggleShare(true)}
+                  disabled={toggling}
                   style={{
-                    padding: "8px 16px",
-                    borderRadius: "4px",
+                    padding: "10px 20px",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                    color: "white",
+                    cursor: toggling ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    opacity: toggling ? 0.6 : 1,
+                    boxShadow: "0 2px 4px rgba(16, 185, 129, 0.3)",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!toggling) {
+                      e.currentTarget.style.transform = "translateY(-2px)";
+                      e.currentTarget.style.boxShadow = "0 4px 8px rgba(16, 185, 129, 0.4)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!toggling) {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = "0 2px 4px rgba(16, 185, 129, 0.3)";
+                    }
+                  }}
+                >
+                  Share All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBulkToggleShare(false)}
+                  disabled={toggling || deleting}
+                  style={{
+                    padding: "10px 20px",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)",
+                    color: "white",
+                    cursor: toggling || deleting ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    opacity: toggling || deleting ? 0.6 : 1,
+                    boxShadow: "0 2px 4px rgba(107, 114, 128, 0.3)",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!toggling && !deleting) {
+                      e.currentTarget.style.transform = "translateY(-2px)";
+                      e.currentTarget.style.boxShadow = "0 4px 8px rgba(107, 114, 128, 0.4)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!toggling && !deleting) {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = "0 2px 4px rgba(107, 114, 128, 0.3)";
+                    }
+                  }}
+                >
+                  Make Private
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(Array.from(selectedIds))}
+                  disabled={deleting || toggling}
+                  style={{
+                    padding: "10px 20px",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+                    color: "white",
+                    cursor: deleting || toggling ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    opacity: deleting || toggling ? 0.6 : 1,
+                    boxShadow: "0 2px 4px rgba(239, 68, 68, 0.3)",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!deleting && !toggling) {
+                      e.currentTarget.style.transform = "translateY(-2px)";
+                      e.currentTarget.style.boxShadow = "0 4px 8px rgba(239, 68, 68, 0.4)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!deleting && !toggling) {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = "0 2px 4px rgba(239, 68, 68, 0.3)";
+                    }
+                  }}
+                >
+                  Delete Selected
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds(new Set())}
+                  disabled={toggling || deleting}
+                  style={{
+                    padding: "10px 20px",
+                    borderRadius: "8px",
                     border: "1px solid #d1d5db",
                     backgroundColor: "white",
                     color: "#374151",
-                    cursor: deleting ? "not-allowed" : "pointer",
+                    cursor: toggling || deleting ? "not-allowed" : "pointer",
                     fontSize: "14px",
-                    opacity: deleting ? 0.6 : 1,
+                    fontWeight: "600",
+                    opacity: toggling || deleting ? 0.6 : 1,
+                    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!toggling && !deleting) {
+                      e.currentTarget.style.backgroundColor = "#f3f4f6";
+                      e.currentTarget.style.borderColor = "#9ca3af";
+                      e.currentTarget.style.transform = "translateY(-1px)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!toggling && !deleting) {
+                      e.currentTarget.style.backgroundColor = "white";
+                      e.currentTarget.style.borderColor = "#d1d5db";
+                      e.currentTarget.style.transform = "translateY(0)";
+                    }
                   }}
                 >
                   Cancel
                 </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmDelete}
-                  disabled={deleting}
-                  style={{
-                    padding: "8px 16px",
-                    borderRadius: "4px",
-                    border: "none",
-                    backgroundColor: "#ef4444",
-                    color: "white",
-                    cursor: deleting ? "not-allowed" : "pointer",
-                    fontSize: "14px",
-                    opacity: deleting ? 0.6 : 1,
-                  }}
-                >
-                  {deleting ? "Deleting..." : "Delete"}
-                </button>
               </div>
             </div>
+          )}
+
+          {/* Filter buttons */}
+          <div
+            style={{
+              display: "flex",
+              gap: "12px",
+              marginBottom: "32px",
+              flexWrap: "wrap",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setFilter("all")}
+              style={{
+                padding: "10px 24px",
+                borderRadius: "8px",
+                border: "1px solid #d1d5db",
+                background:
+                  filter === "all" ? "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)" : "white",
+                color: filter === "all" ? "white" : "#374151",
+                cursor: "pointer",
+                fontSize: "14px",
+                fontWeight: "600",
+                boxShadow:
+                  filter === "all"
+                    ? "0 2px 4px rgba(99, 102, 241, 0.3)"
+                    : "0 1px 2px rgba(0, 0, 0, 0.1)",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                if (filter !== "all") {
+                  e.currentTarget.style.backgroundColor = "#f3f4f6";
+                  e.currentTarget.style.borderColor = "#9ca3af";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (filter !== "all") {
+                  e.currentTarget.style.backgroundColor = "white";
+                  e.currentTarget.style.borderColor = "#d1d5db";
+                }
+              }}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter("shared")}
+              style={{
+                padding: "10px 24px",
+                borderRadius: "8px",
+                border: "1px solid #d1d5db",
+                background:
+                  filter === "shared"
+                    ? "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)"
+                    : "white",
+                color: filter === "shared" ? "white" : "#374151",
+                cursor: "pointer",
+                fontSize: "14px",
+                fontWeight: "600",
+                boxShadow:
+                  filter === "shared"
+                    ? "0 2px 4px rgba(99, 102, 241, 0.3)"
+                    : "0 1px 2px rgba(0, 0, 0, 0.1)",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                if (filter !== "shared") {
+                  e.currentTarget.style.backgroundColor = "#f3f4f6";
+                  e.currentTarget.style.borderColor = "#9ca3af";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (filter !== "shared") {
+                  e.currentTarget.style.backgroundColor = "white";
+                  e.currentTarget.style.borderColor = "#d1d5db";
+                }
+              }}
+            >
+              Shared
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter("unshared")}
+              style={{
+                padding: "10px 24px",
+                borderRadius: "8px",
+                border: "1px solid #d1d5db",
+                background:
+                  filter === "unshared"
+                    ? "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)"
+                    : "white",
+                color: filter === "unshared" ? "white" : "#374151",
+                cursor: "pointer",
+                fontSize: "14px",
+                fontWeight: "600",
+                boxShadow:
+                  filter === "unshared"
+                    ? "0 2px 4px rgba(99, 102, 241, 0.3)"
+                    : "0 1px 2px rgba(0, 0, 0, 0.1)",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                if (filter !== "unshared") {
+                  e.currentTarget.style.backgroundColor = "#f3f4f6";
+                  e.currentTarget.style.borderColor = "#9ca3af";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (filter !== "unshared") {
+                  e.currentTarget.style.backgroundColor = "white";
+                  e.currentTarget.style.borderColor = "#d1d5db";
+                }
+              }}
+            >
+              Unshared
+            </button>
           </div>
-        )}
+
+          {err && (
+            <div
+              style={{
+                padding: "16px",
+                backgroundColor: "#fef2f2",
+                border: "1px solid #fecaca",
+                borderRadius: "8px",
+                color: "#991b1b",
+                marginBottom: "24px",
+                fontWeight: "500",
+              }}
+            >
+              ⚠️ {err}
+            </div>
+          )}
+
+          {loading ? (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+                gap: "20px",
+              }}
+            >
+              {["sk1", "sk2", "sk3", "sk4", "sk5", "sk6"].map((id) => (
+                <div key={id} className="skeleton" style={{ height: "300px" }} />
+              ))}
+            </div>
+          ) : items.length === 0 ? (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "64px 24px",
+                color: "#6b7280",
+              }}
+            >
+              <div style={{ fontSize: "4rem", marginBottom: "16px" }}>📷</div>
+              <p style={{ fontSize: "1.25rem", marginBottom: "8px", fontWeight: "600" }}>
+                No photos found
+              </p>
+              <p>Upload your first photo to get started!</p>
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+                gap: "20px",
+              }}
+            >
+              {items.map((item) => {
+                const isSelected = selectedIds.has(item.id);
+                return (
+                  <div
+                    key={item.id}
+                    className="card fade-in"
+                    style={{
+                      border: isSelected ? "3px solid #6366f1" : "none",
+                      padding: 0,
+                      position: "relative",
+                      backgroundColor: isSelected ? "rgba(99, 102, 241, 0.05)" : "white",
+                      overflow: "hidden",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "translateY(-4px)";
+                      e.currentTarget.style.boxShadow = "0 12px 24px rgba(0, 0, 0, 0.15)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow =
+                        "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
+                    }}
+                  >
+                    {/* Checkbox */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "12px",
+                        left: "12px",
+                        zIndex: 1,
+                        backgroundColor: "rgba(255, 255, 255, 0.9)",
+                        borderRadius: "6px",
+                        padding: "4px",
+                        boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleSelectPhoto(item.id)}
+                        style={{
+                          width: "20px",
+                          height: "20px",
+                          cursor: "pointer",
+                          accentColor: "#6366f1",
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ position: "relative", paddingTop: "100%", overflow: "hidden" }}>
+                      <img
+                        src={item.publicUrl}
+                        alt={item.filename}
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          transition: "transform 0.3s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = "scale(1.05)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = "scale(1)";
+                        }}
+                        loading="lazy"
+                      />
+                    </div>
+                    <div style={{ padding: "12px" }}>
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#6b7280",
+                          marginBottom: "8px",
+                        }}
+                      >
+                        {new Date(item.uploadedAt).toLocaleDateString()}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          marginBottom: "12px",
+                          display: "flex",
+                          gap: "8px",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <span
+                          style={{
+                            padding: "4px 8px",
+                            borderRadius: "6px",
+                            background: item.isShared
+                              ? "linear-gradient(135deg, #10b981 0%, #059669 100%)"
+                              : "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)",
+                            color: "white",
+                            fontSize: "0.7rem",
+                            fontWeight: "600",
+                            boxShadow: "0 1px 2px rgba(0, 0, 0, 0.1)",
+                          }}
+                        >
+                          {item.isShared ? "Shared" : "Private"}
+                        </span>
+                        {item.frameId && (
+                          <span
+                            style={{
+                              fontSize: "0.7rem",
+                              color: "#6366f1",
+                              fontWeight: "500",
+                              padding: "4px 8px",
+                              backgroundColor: "rgba(99, 102, 241, 0.1)",
+                              borderRadius: "6px",
+                            }}
+                          >
+                            Frame: {item.frameId}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        {/* Toggle button */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleShare(item.id)}
+                          disabled={toggling || deleting}
+                          style={{
+                            flex: 1,
+                            padding: "8px 12px",
+                            borderRadius: "6px",
+                            border: "1px solid #d1d5db",
+                            backgroundColor: "white",
+                            color: "#374151",
+                            cursor: toggling || deleting ? "not-allowed" : "pointer",
+                            fontSize: "0.75rem",
+                            fontWeight: "600",
+                            opacity: toggling || deleting ? 0.6 : 1,
+                            transition: "all 0.2s ease",
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!toggling && !deleting) {
+                              e.currentTarget.style.backgroundColor = "#f3f4f6";
+                              e.currentTarget.style.borderColor = "#9ca3af";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!toggling && !deleting) {
+                              e.currentTarget.style.backgroundColor = "white";
+                              e.currentTarget.style.borderColor = "#d1d5db";
+                            }
+                          }}
+                        >
+                          {item.isShared ? "Make Private" : "Share"}
+                        </button>
+                        {/* Delete button */}
+                        <button
+                          type="button"
+                          onClick={() => handleDelete([item.id])}
+                          disabled={deleting}
+                          style={{
+                            flex: 1,
+                            padding: "8px 12px",
+                            borderRadius: "6px",
+                            border: "1px solid #ef4444",
+                            backgroundColor: "white",
+                            color: "#ef4444",
+                            cursor: deleting ? "not-allowed" : "pointer",
+                            fontSize: "0.75rem",
+                            fontWeight: "600",
+                            opacity: deleting ? 0.6 : 1,
+                            transition: "all 0.2s ease",
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!deleting) {
+                              e.currentTarget.style.backgroundColor = "#fef2f2";
+                              e.currentTarget.style.borderColor = "#dc2626";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!deleting) {
+                              e.currentTarget.style.backgroundColor = "white";
+                              e.currentTarget.style.borderColor = "#ef4444";
+                            }
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Confirmation Dialog */}
+          {deletionConfirm.open && (
+            <div
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: "rgba(0, 0, 0, 0.5)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 1000,
+              }}
+              onClick={handleCancelDelete}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  handleCancelDelete();
+                }
+              }}
+            >
+              <div
+                style={{
+                  backgroundColor: "white",
+                  padding: "24px",
+                  borderRadius: "8px",
+                  maxWidth: "400px",
+                  width: "90%",
+                  boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                }}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                }}
+              >
+                <h2 style={{ margin: "0 0 16px 0", color: "#374151", fontSize: "18px" }}>
+                  Confirm Deletion
+                </h2>
+                <p style={{ margin: "0 0 24px 0", color: "#6b7280", fontSize: "14px" }}>
+                  Are you sure you want to delete {deletionConfirm.photoIds.length} photo
+                  {deletionConfirm.photoIds.length !== 1 ? "s" : ""}? This action cannot be undone.
+                </p>
+                <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    onClick={handleCancelDelete}
+                    disabled={deleting}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: "4px",
+                      border: "1px solid #d1d5db",
+                      backgroundColor: "white",
+                      color: "#374151",
+                      cursor: deleting ? "not-allowed" : "pointer",
+                      fontSize: "14px",
+                      opacity: deleting ? 0.6 : 1,
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmDelete}
+                    disabled={deleting}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: "4px",
+                      border: "none",
+                      backgroundColor: "#ef4444",
+                      color: "white",
+                      cursor: deleting ? "not-allowed" : "pointer",
+                      fontSize: "14px",
+                      opacity: deleting ? 0.6 : 1,
+                    }}
+                  >
+                    {deleting ? "Deleting..." : "Delete"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </>
   );
