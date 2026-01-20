@@ -24,6 +24,8 @@ const UploadIcon = () => (
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
     style={{ margin: "0 auto" }}
+    role="img"
+    aria-label="Upload icon"
   >
     <path
       d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
@@ -60,6 +62,8 @@ const FrameIcon = () => (
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
     style={{ margin: "0 auto" }}
+    role="img"
+    aria-label="Frame icon"
   >
     <rect
       x="3"
@@ -96,6 +100,8 @@ const ShareIcon = () => (
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
     style={{ margin: "0 auto" }}
+    role="img"
+    aria-label="Share icon"
   >
     <circle cx="18" cy="5" r="3" stroke="currentColor" strokeWidth="2" fill="none" />
     <circle cx="6" cy="12" r="3" stroke="currentColor" strokeWidth="2" fill="none" />
