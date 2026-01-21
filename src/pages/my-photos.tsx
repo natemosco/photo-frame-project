@@ -36,6 +36,21 @@ export default function MyPhotosPage() {
   const [newFrameName, setNewFrameName] = useState("");
   const [selectedFrameIds, setSelectedFrameIds] = useState<Set<string>>(new Set());
   const [addingToFrame, setAddingToFrame] = useState(false);
+  const [privateToggleConfirm, setPrivateToggleConfirm] = useState<{
+    open: boolean;
+    photoIds: string[];
+    frameCounts: Array<{ photoId: string; frameCount: number }>;
+    totalFramesAffected: number;
+  }>({
+    open: false,
+    photoIds: [],
+    frameCounts: [],
+    totalFramesAffected: 0,
+  });
+  const [successMessage, setSuccessMessage] = useState<{
+    message: string;
+    show: boolean;
+  }>({ message: "", show: false });
 
   useEffect(() => {
     if (status === "loading") return;
@@ -73,12 +88,93 @@ export default function MyPhotosPage() {
   async function handleToggleShare(photoId: string) {
     if (toggling) return;
 
+    // Get current photo state to check if we're making it private
+    const photo = items.find((p) => p.id === photoId);
+    const willBePrivate = photo?.isShared === true;
+
+    // If making private, check frame counts first
+    if (willBePrivate) {
+      try {
+        const res = await fetch("/api/my-photos/frame-counts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ photoIds: [photoId] }),
+        });
+
+        const data = await res.json();
+        if (res.ok && data.totalFramesAffected > 0) {
+          // Show warning modal
+          setPrivateToggleConfirm({
+            open: true,
+            photoIds: [photoId],
+            frameCounts: data.frameCounts,
+            totalFramesAffected: data.totalFramesAffected,
+          });
+          return;
+        }
+      } catch (error) {
+        // If frame count check fails, proceed anyway
+        console.error("Failed to check frame counts:", error);
+      }
+    }
+
+    // Proceed with toggle (either not making private, or no frames affected)
+    await performToggleShare([photoId], photo?.isShared === true ? false : undefined);
+  }
+
+  async function handleBulkToggleShare(isShared: boolean) {
+    if (toggling || selectedIds.size === 0) return;
+
+    // If making private, check frame counts first
+    if (!isShared) {
+      try {
+        const res = await fetch("/api/my-photos/frame-counts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ photoIds: Array.from(selectedIds) }),
+        });
+
+        const data = await res.json();
+        if (res.ok && data.totalFramesAffected > 0) {
+          // Show warning modal
+          setPrivateToggleConfirm({
+            open: true,
+            photoIds: Array.from(selectedIds),
+            frameCounts: data.frameCounts,
+            totalFramesAffected: data.totalFramesAffected,
+          });
+          return;
+        }
+      } catch (error) {
+        // If frame count check fails, proceed anyway
+        console.error("Failed to check frame counts:", error);
+      }
+    }
+
+    // Proceed with toggle (either not making private, or no frames affected)
+    await performToggleShare(Array.from(selectedIds), isShared);
+  }
+
+  async function performToggleShare(photoIds: string[], isShared?: boolean) {
+    if (toggling) return;
+
     setToggling(true);
+    setErr("");
     try {
+      // Determine if we need to toggle or set specific value
+      let body: { photoId?: string; photoIds?: string[]; isShared?: boolean };
+      if (photoIds.length === 1 && isShared === undefined) {
+        // Single toggle - flip current state
+        body = { photoId: photoIds[0] };
+      } else {
+        // Bulk toggle with specific value
+        body = { photoIds, isShared: isShared ?? false };
+      }
+
       const res = await fetch("/api/my-photos/toggle-share", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ photoId }),
+        body: JSON.stringify(body),
       });
 
       const data = await res.json();
@@ -87,12 +183,47 @@ export default function MyPhotosPage() {
         return;
       }
 
-      // Update the photo in the items array
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === photoId ? { ...item, isShared: data.photo.isShared } : item
-        )
-      );
+      // Update photos in the items array
+      if (data.photo) {
+        // Single toggle response
+        setItems((prev) =>
+          prev.map((item) =>
+            item.id === data.photo.id ? { ...item, isShared: data.photo.isShared } : item
+          )
+        );
+
+        // Show success message if frames were removed
+        if (data.removedFromFrames > 0) {
+          setSuccessMessage({
+            message: `Photo removed from ${data.removedFromFrames} frame${data.removedFromFrames !== 1 ? "s" : ""}`,
+            show: true,
+          });
+          setTimeout(() => setSuccessMessage({ message: "", show: false }), 5000);
+        }
+      } else if (data.photos) {
+        // Bulk toggle response
+        const updatedIds = new Set(data.photos.map((p: { id: string }) => p.id));
+        const targetIsShared = isShared ?? false;
+        setItems((prev) =>
+          prev.map((item) =>
+            updatedIds.has(item.id) ? { ...item, isShared: targetIsShared } : item
+          )
+        );
+
+        // Show success message if frames were removed
+        if (data.removedFromFrames > 0) {
+          setSuccessMessage({
+            message: `${data.updated} photo${data.updated !== 1 ? "s" : ""} removed from ${data.removedFromFrames} frame${data.removedFromFrames !== 1 ? "s" : ""}`,
+            show: true,
+          });
+          setTimeout(() => setSuccessMessage({ message: "", show: false }), 5000);
+        }
+      }
+
+      // Clear selection for bulk operations
+      if (photoIds.length > 1) {
+        setSelectedIds(new Set());
+      }
     } catch (error) {
       setErr("Failed to toggle share status");
     } finally {
@@ -100,36 +231,18 @@ export default function MyPhotosPage() {
     }
   }
 
-  async function handleBulkToggleShare(isShared: boolean) {
-    if (toggling || selectedIds.size === 0) return;
+  async function handleConfirmPrivateToggle() {
+    if (toggling || privateToggleConfirm.photoIds.length === 0) return;
 
-    setToggling(true);
-    try {
-      const res = await fetch("/api/my-photos/toggle-share", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ photoIds: Array.from(selectedIds), isShared }),
-      });
+    const photoIds = privateToggleConfirm.photoIds;
+    setPrivateToggleConfirm({ open: false, photoIds: [], frameCounts: [], totalFramesAffected: 0 });
+    // For single toggle, pass undefined to let API flip automatically
+    // For bulk toggle, pass false to set to private
+    await performToggleShare(photoIds, photoIds.length === 1 ? undefined : false);
+  }
 
-      const data = await res.json();
-      if (!res.ok) {
-        setErr(data?.error ?? "Failed to update photos");
-        return;
-      }
-
-      // Update all affected photos in the items array
-      const updatedIds = new Set(data.photos.map((p: { id: string }) => p.id));
-      setItems((prev) =>
-        prev.map((item) => (updatedIds.has(item.id) ? { ...item, isShared } : item))
-      );
-
-      // Clear selection
-      setSelectedIds(new Set());
-    } catch (error) {
-      setErr("Failed to update photos");
-    } finally {
-      setToggling(false);
-    }
+  function handleCancelPrivateToggle() {
+    setPrivateToggleConfirm({ open: false, photoIds: [], frameCounts: [], totalFramesAffected: 0 });
   }
 
   function handleSelectPhoto(photoId: string) {
@@ -782,6 +895,22 @@ export default function MyPhotosPage() {
             </div>
           )}
 
+          {successMessage.show && (
+            <div
+              style={{
+                padding: "16px",
+                backgroundColor: "#f0fdf4",
+                border: "1px solid #bbf7d0",
+                borderRadius: "8px",
+                color: "#166534",
+                marginBottom: "24px",
+                fontWeight: "500",
+              }}
+            >
+              ✓ {successMessage.message}
+            </div>
+          )}
+
           {loading ? (
             <div
               style={{
@@ -1320,6 +1449,122 @@ export default function MyPhotosPage() {
                     }}
                   >
                     {deleting ? "Deleting..." : "Delete"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Private Toggle Confirmation Dialog */}
+          {privateToggleConfirm.open && (
+            <div
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: "rgba(0, 0, 0, 0.5)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 1000,
+              }}
+              onClick={handleCancelPrivateToggle}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  handleCancelPrivateToggle();
+                }
+              }}
+            >
+              <div
+                style={{
+                  backgroundColor: "white",
+                  padding: "24px",
+                  borderRadius: "8px",
+                  maxWidth: "500px",
+                  width: "90%",
+                  boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                }}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                }}
+              >
+                <h2 style={{ margin: "0 0 16px 0", color: "#374151", fontSize: "18px" }}>
+                  Make Photos Private
+                </h2>
+                <p style={{ margin: "0 0 16px 0", color: "#6b7280", fontSize: "14px" }}>
+                  This will remove {privateToggleConfirm.photoIds.length} photo
+                  {privateToggleConfirm.photoIds.length !== 1 ? "s" : ""} from{" "}
+                  {privateToggleConfirm.totalFramesAffected} frame
+                  {privateToggleConfirm.totalFramesAffected !== 1 ? "s" : ""}. Continue?
+                </p>
+                {privateToggleConfirm.frameCounts.length > 0 && (
+                  <div
+                    style={{
+                      marginBottom: "16px",
+                      padding: "12px",
+                      backgroundColor: "#fef3c7",
+                      borderRadius: "6px",
+                      border: "1px solid #fde047",
+                    }}
+                  >
+                    <p
+                      style={{
+                        margin: "0 0 8px 0",
+                        color: "#92400e",
+                        fontSize: "13px",
+                        fontWeight: "600",
+                      }}
+                    >
+                      Frame removal details:
+                    </p>
+                    <div style={{ fontSize: "12px", color: "#78350f" }}>
+                      {privateToggleConfirm.frameCounts
+                        .filter((fc) => fc.frameCount > 0)
+                        .map((fc) => (
+                          <div key={fc.photoId} style={{ marginBottom: "4px" }}>
+                            • {fc.frameCount} frame{fc.frameCount !== 1 ? "s" : ""} will be affected
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    onClick={handleCancelPrivateToggle}
+                    disabled={toggling}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: "4px",
+                      border: "1px solid #d1d5db",
+                      backgroundColor: "white",
+                      color: "#374151",
+                      cursor: toggling ? "not-allowed" : "pointer",
+                      fontSize: "14px",
+                      opacity: toggling ? 0.6 : 1,
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmPrivateToggle}
+                    disabled={toggling}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: "4px",
+                      border: "none",
+                      backgroundColor: "#6b7280",
+                      color: "white",
+                      cursor: toggling ? "not-allowed" : "pointer",
+                      fontSize: "14px",
+                      opacity: toggling ? 0.6 : 1,
+                    }}
+                  >
+                    {toggling ? "Processing..." : "Make Private"}
                   </button>
                 </div>
               </div>
