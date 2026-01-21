@@ -24,16 +24,20 @@ export const authOptions: NextAuthOptions = {
         } catch (error) {
           console.error("Failed to sync user to database:", error);
         }
+      } else {
+        // Preserve provider id across subsequent JWT calls
+        token.googleId = token.googleId ?? token.sub;
       }
       return token;
     },
     async session({ session, token }) {
+      const googleId = typeof token.googleId === "string" ? token.googleId : token.sub;
       // Include googleId in session.user.id for compatibility with getOrCreateUser
-      if (session.user && token.googleId) {
-        session.user.id = token.googleId;
+      if (session.user && googleId) {
+        session.user.id = googleId;
       }
       // Optionally include database userId in session
-      if (token.userId) {
+      if (token.userId && typeof token.userId === "string") {
         session.userId = token.userId;
       }
       return session;
