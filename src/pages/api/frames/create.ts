@@ -11,6 +11,9 @@ const CreateFrameSchema = z.object({
   name: z.string().min(1).max(200),
   photoIds: z.array(z.string().uuid()).optional(),
   isShared: z.boolean().optional().default(true), // Default to true for collaborative frames
+  // When true, any of the caller's private photos in photoIds will be
+  // switched to shared (isShared=true) before being attached to the frame.
+  makePrivatePhotosShared: z.boolean().optional().default(false),
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -35,12 +38,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    const { name, photoIds, isShared } = parsed.data;
+    const { name, photoIds, isShared, makePrivatePhotosShared } = parsed.data;
 
-    // Verify all photos belong to the user if photoIds provided
+    let madeSharedCount = 0;
+    let photosToAttach: string[] = [];
+
+    // Verify all photos belong to the user if photoIds provided and enforce
+    // that only shared photos are attached unless explicitly promoted.
     if (photoIds && photoIds.length > 0) {
       const userPhotos = await db
-        .select({ id: photos.id })
+        .select({
+          id: photos.id,
+          isShared: photos.isShared,
+        })
         .from(photos)
         .where(and(eq(photos.userId, userId), inArray(photos.id, photoIds)));
 
@@ -49,6 +59,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           error: "Some photos not found or you don't have permission to use them",
         });
       }
+
+      const sharedPhotoIds = userPhotos.filter((p) => p.isShared).map((p) => p.id);
+      const privatePhotoIds = userPhotos.filter((p) => !p.isShared).map((p) => p.id);
+
+      if (privatePhotoIds.length > 0 && makePrivatePhotosShared) {
+        const result = await db
+          .update(photos)
+          .set({
+            isShared: true,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(photos.userId, userId), inArray(photos.id, privatePhotoIds)))
+          .returning({ id: photos.id });
+
+        madeSharedCount = result.length;
+        sharedPhotoIds.push(...privatePhotoIds);
+      }
+
+      if (privatePhotoIds.length > 0 && !makePrivatePhotosShared) {
+        return res.status(400).json({
+          error: "Private photos cannot be added to frames without confirmation.",
+          privatePhotoCount: privatePhotoIds.length,
+          sharedPhotoCount: sharedPhotoIds.length,
+        });
+      }
+
+      photosToAttach = sharedPhotoIds;
     }
 
     // Create the frame
@@ -67,15 +104,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         updatedAt: frames.updatedAt,
       });
 
+    let attachedCount = 0;
+
     // Add photos to frame if provided (handle duplicates gracefully)
-    if (photoIds && photoIds.length > 0) {
+    if (photosToAttach.length > 0) {
       try {
         await db.insert(framePhotos).values(
-          photoIds.map((photoId) => ({
+          photosToAttach.map((photoId) => ({
             frameId: newFrame.id,
             photoId,
           }))
         );
+        attachedCount = photosToAttach.length;
       } catch (error) {
         // Ignore duplicate key errors (frame_photo_unique constraint)
         // This allows idempotent operations
@@ -88,6 +128,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(201).json({
       frame: newFrame,
+      madeSharedCount,
+      attachedCount,
       message: "Frame created successfully",
     });
   } catch (error: unknown) {

@@ -9,6 +9,11 @@ import { authOptions } from "../../auth/[...nextauth]";
 
 const AddPhotosSchema = z.object({
   photoIds: z.array(z.string().uuid()).min(1),
+  // When true, any of the caller's private photos in photoIds will be
+  // switched to shared (isShared=true) before being attached to the frame.
+  // This is how the UI explicitly confirms that private photos may be
+  // visible in frames and the gallery.
+  makePrivatePhotosShared: z.boolean().optional().default(false),
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -54,28 +59,77 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    const { photoIds } = parsed.data;
+    const { photoIds, makePrivatePhotosShared } = parsed.data;
 
-    // Verify all photos exist (for collaborative frames, any user can add any photo)
-    const existingPhotos = await db
-      .select({ id: photos.id })
+    // Privacy rules:
+    // - Only the authenticated user's photos can be attached to frames
+    //   via this endpoint (even for collaborative frames).
+    // - By default, only already-shared photos (isShared=true) can be
+    //   attached.
+    // - If makePrivatePhotosShared=true is provided, any of the caller's
+    //   private photos in the request will first be updated to
+    //   isShared=true and then attached.
+    const userPhotos = await db
+      .select({
+        id: photos.id,
+        isShared: photos.isShared,
+      })
       .from(photos)
-      .where(inArray(photos.id, photoIds));
+      .where(and(eq(photos.userId, userId), inArray(photos.id, photoIds)));
 
-    if (existingPhotos.length !== photoIds.length) {
+    if (userPhotos.length !== photoIds.length) {
       return res.status(400).json({
-        error: "Some photos not found",
+        error: "Some photos not found or you don't have permission to use them",
       });
     }
 
+    const sharedPhotoIds = userPhotos.filter((p) => p.isShared).map((p) => p.id);
+    const privatePhotoIds = userPhotos.filter((p) => !p.isShared).map((p) => p.id);
+
+    let madeSharedCount = 0;
+
+    if (privatePhotoIds.length > 0 && makePrivatePhotosShared) {
+      const result = await db
+        .update(photos)
+        .set({
+          isShared: true,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(photos.userId, userId), inArray(photos.id, privatePhotoIds)))
+        .returning({ id: photos.id });
+
+      madeSharedCount = result.length;
+      // After promotion, all user photos in this request are effectively shared
+      sharedPhotoIds.push(...privatePhotoIds);
+    }
+
+    // If there are still private photos and the caller did not explicitly
+    // confirm promotion, block attaching them to the frame.
+    if (privatePhotoIds.length > 0 && !makePrivatePhotosShared) {
+      return res.status(400).json({
+        error: "Private photos cannot be added to frames without confirmation.",
+        privatePhotoCount: privatePhotoIds.length,
+        sharedPhotoCount: sharedPhotoIds.length,
+      });
+    }
+
+    const photosToAttach = [...sharedPhotoIds];
+
     // Check which photos are already in the frame
-    const existingFramePhotos = await db
-      .select({ photoId: framePhotos.photoId })
-      .from(framePhotos)
-      .where(and(eq(framePhotos.frameId, frameId), inArray(framePhotos.photoId, photoIds)));
+    const existingFramePhotos =
+      photosToAttach.length > 0
+        ? await db
+            .select({ photoId: framePhotos.photoId })
+            .from(framePhotos)
+            .where(
+              and(eq(framePhotos.frameId, frameId), inArray(framePhotos.photoId, photosToAttach))
+            )
+        : [];
 
     const existingPhotoIds = new Set(existingFramePhotos.map((fp) => fp.photoId));
-    const newPhotoIds = photoIds.filter((id) => !existingPhotoIds.has(id));
+    const newPhotoIds = photosToAttach.filter((id) => !existingPhotoIds.has(id));
+
+    let attachedCount = 0;
 
     // Add only new photos to frame (handle duplicates gracefully)
     if (newPhotoIds.length > 0) {
@@ -86,6 +140,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             photoId,
           }))
         );
+        attachedCount = newPhotoIds.length;
       } catch (error) {
         // Ignore duplicate key errors (frame_photo_unique constraint)
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -96,8 +151,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     return res.status(200).json({
-      added: newPhotoIds.length,
+      added: attachedCount,
       skipped: existingPhotoIds.size,
+      madeSharedCount,
+      attachedCount,
       message: "Photos added to frame successfully",
     });
   } catch (error: unknown) {

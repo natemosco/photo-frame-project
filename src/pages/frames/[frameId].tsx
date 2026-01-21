@@ -1,6 +1,6 @@
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { GetServerSideProps } from "next";
 import { getServerSession } from "next-auth/next";
 import { useRouter } from "next/router";
@@ -29,6 +29,7 @@ type FrameData = {
     updatedAt: string;
   };
   photos: FramePhoto[];
+  isAllPhotosFrame?: boolean;
 };
 
 type FramePageProps = {
@@ -43,7 +44,7 @@ export default function FrameViewPage({ frameData }: FramePageProps) {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
-  const { frame, photos } = frameData;
+  const { frame, photos, isAllPhotosFrame } = frameData;
 
   const handlePrevious = useCallback(() => {
     setCurrentIndex((prev) => (prev - 1 + photos.length) % photos.length);
@@ -181,6 +182,7 @@ export default function FrameViewPage({ frameData }: FramePageProps) {
             </h1>
             <p style={{ color: "#6b7280" }}>
               Photo {currentIndex + 1} of {photos.length}
+              {isAllPhotosFrame && " • Randomized on each load"}
             </p>
           </div>
         )}
@@ -494,7 +496,86 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   try {
     const userId = await getOrCreateUser(session);
 
-    // Get frame details
+    // Special virtual "All Photos" frame for the current user.
+    if (frameId === "all") {
+      const userSharedPhotos = await db
+        .select({
+          id: photos.id,
+          s3Key: photos.s3Key,
+          publicUrl: photos.publicUrl,
+          filename: photos.filename,
+          uploadedAt: photos.uploadedAt,
+        })
+        .from(photos)
+        .where(and(eq(photos.userId, userId), eq(photos.isShared, true)))
+        .orderBy(desc(photos.uploadedAt));
+
+      // Shuffle photos on every page load (Fisher–Yates).
+      const shuffled = [...userSharedPhotos];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+
+      const s3 = new S3Client({ region: process.env.AWS_REGION });
+      const bucket = process.env.S3_BUCKET;
+
+      if (!bucket) {
+        return {
+          props: {
+            frameData: {
+              frame: {
+                id: "all",
+                name: "All Photos",
+                isShared: true,
+                userId,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+              photos: [],
+              isAllPhotosFrame: true,
+            },
+          },
+        };
+      }
+
+      const photosWithUrls: FramePhoto[] = await Promise.all(
+        shuffled.map(async (photo) => {
+          const getCommand = new GetObjectCommand({
+            Bucket: bucket,
+            Key: photo.s3Key,
+          });
+          const presignedUrl = await getSignedUrl(s3, getCommand, { expiresIn: 3600 });
+
+          return {
+            id: photo.id,
+            key: photo.s3Key,
+            publicUrl: presignedUrl,
+            filename: photo.filename,
+            uploadedAt: photo.uploadedAt.toISOString(),
+          };
+        })
+      );
+
+      return {
+        props: {
+          frameData: {
+            frame: {
+              id: "all",
+              name: "All Photos",
+              isShared: true,
+              userId,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+            photos: photosWithUrls,
+            isAllPhotosFrame: true,
+          },
+        },
+      };
+    }
+
+    // Standard frame behavior for persisted frames.
     const frame = await db
       .select({
         id: frames.id,

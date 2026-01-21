@@ -1,6 +1,6 @@
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServerSession } from "next-auth/next";
 import { db } from "../../../../db";
@@ -32,7 +32,67 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: "Frame ID is required" });
     }
 
-    // Get frame details
+    // Special virtual "All Photos" frame for the current user.
+    if (frameId === "all") {
+      // All shared photos owned by this user, randomized per request.
+      const userSharedPhotos = await db
+        .select({
+          id: photos.id,
+          s3Key: photos.s3Key,
+          publicUrl: photos.publicUrl,
+          filename: photos.filename,
+          uploadedAt: photos.uploadedAt,
+        })
+        .from(photos)
+        .where(and(eq(photos.userId, userId), eq(photos.isShared, true)))
+        .orderBy(desc(photos.uploadedAt));
+
+      // Shuffle photos on every request (Fisher–Yates).
+      const shuffled = [...userSharedPhotos];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+
+      const s3 = new S3Client({ region: process.env.AWS_REGION });
+      const bucket = process.env.S3_BUCKET;
+
+      if (!bucket) {
+        return res.status(500).json({ error: "S3_BUCKET environment variable is not set" });
+      }
+
+      const photosWithUrls = await Promise.all(
+        shuffled.map(async (photo) => {
+          const getCommand = new GetObjectCommand({
+            Bucket: bucket,
+            Key: photo.s3Key,
+          });
+          const presignedUrl = await getSignedUrl(s3, getCommand, { expiresIn: 3600 });
+
+          return {
+            id: photo.id,
+            key: photo.s3Key,
+            publicUrl: presignedUrl,
+            filename: photo.filename,
+            uploadedAt: photo.uploadedAt.toISOString(),
+          };
+        })
+      );
+
+      return res.status(200).json({
+        frame: {
+          id: "all",
+          name: "All Photos",
+          isShared: true,
+          userId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        photos: photosWithUrls,
+      });
+    }
+
+    // Regular, persisted frame behavior
     const frame = await db
       .select({
         id: frames.id,

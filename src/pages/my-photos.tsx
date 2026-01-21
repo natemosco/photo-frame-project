@@ -51,6 +51,19 @@ export default function MyPhotosPage() {
     message: string;
     show: boolean;
   }>({ message: "", show: false });
+  const [addToFramePrivacyConfirm, setAddToFramePrivacyConfirm] = useState<{
+    open: boolean;
+    privateCount: number;
+    sharedCount: number;
+    totalCount: number;
+    mode: "create" | "add-existing" | null;
+  }>({
+    open: false,
+    privateCount: 0,
+    sharedCount: 0,
+    totalCount: 0,
+    mode: null,
+  });
 
   useEffect(() => {
     if (status === "loading") return;
@@ -315,6 +328,23 @@ export default function MyPhotosPage() {
 
   async function handleOpenAddToFrame() {
     if (selectedIds.size === 0) return;
+
+    // Enforce that private photos cannot silently be added to frames.
+    const selected = items.filter((item) => selectedIds.has(item.id));
+    const privateCount = selected.filter((p) => !p.isShared).length;
+    const sharedCount = selected.length - privateCount;
+
+    if (privateCount > 0) {
+      setAddToFramePrivacyConfirm({
+        open: true,
+        privateCount,
+        sharedCount,
+        totalCount: selected.length,
+        mode: "create", // initial mode is generic; specific action sets its own mode
+      });
+      return;
+    }
+
     setAddToFrameModal(true);
     setLoadingFrames(true);
     try {
@@ -348,7 +378,7 @@ export default function MyPhotosPage() {
     });
   }
 
-  async function handleCreateFrameWithPhotos() {
+  async function handleCreateFrameWithPhotos(makePrivatePhotosShared = false) {
     if (!newFrameName.trim() || selectedIds.size === 0 || addingToFrame) return;
 
     setAddingToFrame(true);
@@ -361,6 +391,7 @@ export default function MyPhotosPage() {
           name: newFrameName.trim(),
           photoIds: Array.from(selectedIds),
           isShared: true, // Collaborative frames
+          makePrivatePhotosShared,
         }),
       });
 
@@ -368,6 +399,21 @@ export default function MyPhotosPage() {
       if (!res.ok) {
         setErr(data?.error ?? "Failed to create frame");
         return;
+      }
+
+      // If we promoted any photos to shared, reflect that in local state.
+      if (makePrivatePhotosShared && data.madeSharedCount > 0) {
+        const selectedIdSet = new Set(Array.from(selectedIds));
+        setItems((prev) =>
+          prev.map((item) => (selectedIdSet.has(item.id) ? { ...item, isShared: true } : item))
+        );
+        setSuccessMessage({
+          message: `${data.madeSharedCount} photo${
+            data.madeSharedCount !== 1 ? "s" : ""
+          } were made shared and added to the new frame`,
+          show: true,
+        });
+        setTimeout(() => setSuccessMessage({ message: "", show: false }), 5000);
       }
 
       // Success - close modal and clear selection
@@ -380,27 +426,55 @@ export default function MyPhotosPage() {
     }
   }
 
-  async function handleAddToExistingFrames() {
+  async function handleAddToExistingFrames(makePrivatePhotosShared = false) {
     if (selectedFrameIds.size === 0 || selectedIds.size === 0 || addingToFrame) return;
 
     setAddingToFrame(true);
     setErr("");
     try {
       const photoIds = Array.from(selectedIds);
-      const promises = Array.from(selectedFrameIds).map((frameId) =>
-        fetch(`/api/frames/${frameId}/photos`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ photoIds }),
-        })
+      const frameIds = Array.from(selectedFrameIds);
+
+      const responses = await Promise.all(
+        frameIds.map((frameId) =>
+          fetch(`/api/frames/${frameId}/photos`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ photoIds, makePrivatePhotosShared }),
+          })
+        )
       );
 
-      const results = await Promise.all(promises);
-      const errors = results.filter((r) => !r.ok);
-
-      if (errors.length > 0) {
-        setErr("Failed to add photos to some frames");
+      const errorResponses = responses.filter((r) => !r.ok);
+      if (errorResponses.length > 0) {
+        const firstError = await errorResponses[0].json().catch(() => ({}));
+        setErr(firstError?.error ?? "Failed to add photos to some frames");
         return;
+      }
+
+      // If any call reports promoted photos, update local items once.
+      let totalMadeShared = 0;
+      for (const res of responses) {
+        const json = await res.json().catch(() => null);
+        if (json && typeof json.madeSharedCount === "number") {
+          totalMadeShared += json.madeSharedCount;
+        }
+      }
+
+      if (makePrivatePhotosShared && totalMadeShared > 0) {
+        const selectedIdSet = new Set(photoIds);
+        setItems((prev) =>
+          prev.map((item) => (selectedIdSet.has(item.id) ? { ...item, isShared: true } : item))
+        );
+        setSuccessMessage({
+          message: `${totalMadeShared} photo${
+            totalMadeShared !== 1 ? "s" : ""
+          } were made shared and added to ${frameIds.length} frame${
+            frameIds.length !== 1 ? "s" : ""
+          }`,
+          show: true,
+        });
+        setTimeout(() => setSuccessMessage({ message: "", show: false }), 5000);
       }
 
       // Success - close modal and clear selection
@@ -1228,7 +1302,24 @@ export default function MyPhotosPage() {
                     />
                     <button
                       type="button"
-                      onClick={handleCreateFrameWithPhotos}
+                      onClick={() => {
+                        // If any selected photos are private, show confirmation first
+                        const selected = items.filter((item) => selectedIds.has(item.id));
+                        const privateCount = selected.filter((p) => !p.isShared).length;
+                        const sharedCount = selected.length - privateCount;
+
+                        if (privateCount > 0) {
+                          setAddToFramePrivacyConfirm({
+                            open: true,
+                            privateCount,
+                            sharedCount,
+                            totalCount: selected.length,
+                            mode: "create",
+                          });
+                        } else {
+                          void handleCreateFrameWithPhotos(false);
+                        }
+                      }}
                       disabled={!newFrameName.trim() || addingToFrame}
                       style={{
                         padding: "10px 20px",
@@ -1319,7 +1410,24 @@ export default function MyPhotosPage() {
                   {userFrames.length > 0 && (
                     <button
                       type="button"
-                      onClick={handleAddToExistingFrames}
+                      onClick={() => {
+                        // If any selected photos are private, show confirmation first
+                        const selected = items.filter((item) => selectedIds.has(item.id));
+                        const privateCount = selected.filter((p) => !p.isShared).length;
+                        const sharedCount = selected.length - privateCount;
+
+                        if (privateCount > 0) {
+                          setAddToFramePrivacyConfirm({
+                            open: true,
+                            privateCount,
+                            sharedCount,
+                            totalCount: selected.length,
+                            mode: "add-existing",
+                          });
+                        } else {
+                          void handleAddToExistingFrames(false);
+                        }
+                      }}
                       disabled={selectedFrameIds.size === 0 || addingToFrame}
                       style={{
                         marginTop: "12px",
@@ -1565,6 +1673,138 @@ export default function MyPhotosPage() {
                     }}
                   >
                     {toggling ? "Processing..." : "Make Private"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Add To Frame Privacy Confirmation Dialog */}
+          {addToFramePrivacyConfirm.open && (
+            <div
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: "rgba(0, 0, 0, 0.5)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 1000,
+              }}
+              onClick={() =>
+                setAddToFramePrivacyConfirm({
+                  open: false,
+                  privateCount: 0,
+                  sharedCount: 0,
+                  totalCount: 0,
+                  mode: null,
+                })
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setAddToFramePrivacyConfirm({
+                    open: false,
+                    privateCount: 0,
+                    sharedCount: 0,
+                    totalCount: 0,
+                    mode: null,
+                  });
+                }
+              }}
+            >
+              <div
+                style={{
+                  backgroundColor: "white",
+                  padding: "24px",
+                  borderRadius: "8px",
+                  maxWidth: "500px",
+                  width: "90%",
+                  boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                }}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                }}
+              >
+                <h2 style={{ margin: "0 0 12px 0", color: "#111827", fontSize: "18px" }}>
+                  Use Private Photos in a Frame?
+                </h2>
+                <p style={{ margin: "0 0 12px 0", color: "#4b5563", fontSize: "14px" }}>
+                  You selected private photo
+                  {addToFramePrivacyConfirm.privateCount !== 1 ? "s" : ""}. To show them in a frame,
+                  they must be made shared and visible in your gallery and any frames.
+                </p>
+                <p style={{ margin: "0 0 12px 0", color: "#6b7280", fontSize: "13px" }}>
+                  <strong>{addToFramePrivacyConfirm.privateCount}</strong> private and{" "}
+                  <strong>{addToFramePrivacyConfirm.sharedCount}</strong> already shared photo
+                  {addToFramePrivacyConfirm.sharedCount !== 1 ? "s" : ""} will be added.
+                </p>
+                <p style={{ margin: "0 0 20px 0", color: "#9ca3af", fontSize: "12px" }}>
+                  You can always make a photo private again later, which will remove it from frames.
+                </p>
+                <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAddToFramePrivacyConfirm({
+                        open: false,
+                        privateCount: 0,
+                        sharedCount: 0,
+                        totalCount: 0,
+                        mode: null,
+                      })
+                    }
+                    disabled={addingToFrame}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: "4px",
+                      border: "1px solid #d1d5db",
+                      backgroundColor: "white",
+                      color: "#374151",
+                      cursor: addingToFrame ? "not-allowed" : "pointer",
+                      fontSize: "14px",
+                      opacity: addingToFrame ? 0.6 : 1,
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const mode = addToFramePrivacyConfirm.mode;
+                      setAddToFramePrivacyConfirm({
+                        open: false,
+                        privateCount: 0,
+                        sharedCount: 0,
+                        totalCount: 0,
+                        mode: null,
+                      });
+
+                      if (mode === "create") {
+                        await handleCreateFrameWithPhotos(true);
+                      } else if (mode === "add-existing") {
+                        await handleAddToExistingFrames(true);
+                      } else {
+                        // Fallback: just open the modal normally
+                        await handleOpenAddToFrame();
+                      }
+                    }}
+                    disabled={addingToFrame}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: "4px",
+                      border: "none",
+                      backgroundColor: "#4f46e5",
+                      color: "white",
+                      cursor: addingToFrame ? "not-allowed" : "pointer",
+                      fontSize: "14px",
+                      opacity: addingToFrame ? 0.6 : 1,
+                    }}
+                  >
+                    Make Private Photos Shared & Continue
                   </button>
                 </div>
               </div>
