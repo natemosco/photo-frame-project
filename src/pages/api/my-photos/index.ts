@@ -40,7 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         filename: photos.filename,
         uploadedAt: photos.uploadedAt,
         isShared: photos.isShared,
-        frameId: photos.frameId,
+        isLocked: photos.isLocked,
       })
       .from(photos)
       .where(whereCondition)
@@ -72,7 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           filename: photo.filename,
           uploadedAt: photo.uploadedAt.toISOString(),
           isShared: photo.isShared,
-          frameId: photo.frameId,
+          isLocked: photo.isLocked,
         };
       })
     );

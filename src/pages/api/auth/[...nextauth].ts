@@ -29,11 +29,11 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       // Include googleId in session.user.id for compatibility with getOrCreateUser
-      if (session.user && token.googleId) {
+      if (session.user && token.googleId && typeof token.googleId === "string") {
         session.user.id = token.googleId;
       }
       // Optionally include database userId in session
-      if (token.userId) {
+      if (token.userId && typeof token.userId === "string") {
         session.userId = token.userId;
       }
       return session;

@@ -1,0 +1,102 @@
+import { and, eq, inArray } from "drizzle-orm";
+import type { NextApiRequest, NextApiResponse } from "next";
+import { getServerSession } from "next-auth/next";
+import { z } from "zod";
+import { db } from "../../../../db";
+import { framePhotos, frames, photos } from "../../../../db/schema";
+import { getOrCreateUser } from "../../../../lib/user";
+import { authOptions } from "../../auth/[...nextauth]";
+
+const AddPhotosSchema = z.object({
+  photoIds: z.array(z.string().uuid()).min(1),
+});
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const session = await getServerSession(req, res, authOptions);
+  if (!session) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const userId = await getOrCreateUser(session);
+    const frameId = req.query.frameId as string;
+
+    if (!frameId) {
+      return res.status(400).json({ error: "Frame ID is required" });
+    }
+
+    // Verify frame belongs to user
+    const frame = await db
+      .select({ id: frames.id, userId: frames.userId })
+      .from(frames)
+      .where(eq(frames.id, frameId))
+      .limit(1);
+
+    if (frame.length === 0) {
+      return res.status(404).json({ error: "Frame not found" });
+    }
+
+    if (frame[0].userId !== userId) {
+      return res.status(403).json({ error: "You don't have permission to modify this frame" });
+    }
+
+    // Validate request body
+    const parsed = AddPhotosSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: "Invalid request",
+        details: parsed.error.flatten(),
+      });
+    }
+
+    const { photoIds } = parsed.data;
+
+    // Verify all photos belong to the user
+    const userPhotos = await db
+      .select({ id: photos.id })
+      .from(photos)
+      .where(and(eq(photos.userId, userId), inArray(photos.id, photoIds)));
+
+    if (userPhotos.length !== photoIds.length) {
+      return res.status(400).json({
+        error: "Some photos not found or you don't have permission to use them",
+      });
+    }
+
+    // Check which photos are already in the frame
+    const existingFramePhotos = await db
+      .select({ photoId: framePhotos.photoId })
+      .from(framePhotos)
+      .where(and(eq(framePhotos.frameId, frameId), inArray(framePhotos.photoId, photoIds)));
+
+    const existingPhotoIds = new Set(existingFramePhotos.map((fp) => fp.photoId));
+    const newPhotoIds = photoIds.filter((id) => !existingPhotoIds.has(id));
+
+    // Add only new photos to frame
+    if (newPhotoIds.length > 0) {
+      await db.insert(framePhotos).values(
+        newPhotoIds.map((photoId) => ({
+          frameId,
+          photoId,
+        }))
+      );
+    }
+
+    return res.status(200).json({
+      added: newPhotoIds.length,
+      skipped: existingPhotoIds.size,
+      message: "Photos added to frame successfully",
+    });
+  } catch (error: unknown) {
+    console.error("Failed to add photos to frame:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    return res.status(500).json({
+      error: "Failed to add photos to frame",
+      message,
+    });
+  }
+}
