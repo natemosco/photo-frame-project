@@ -39,7 +39,7 @@ export default function FrameViewPage({ frameData }: FramePageProps) {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [slideInterval, setSlideInterval] = useState(5000); // 5 seconds default
+  const [slideInterval, setSlideInterval] = useState(3000); // 3 seconds default
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -203,6 +203,56 @@ export default function FrameViewPage({ frameData }: FramePageProps) {
               : "0 20px 60px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(255, 255, 255, 0.1)",
           }}
         >
+          {/* Click zones for navigation */}
+          {photos.length > 1 && (
+            <>
+              {/* Left click zone */}
+              <div
+                onClick={handlePrevious}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handlePrevious();
+                  }
+                }}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  width: "33%",
+                  height: "100%",
+                  cursor: "pointer",
+                  zIndex: 5,
+                }}
+                aria-label="Previous photo"
+                tabIndex={0}
+                role="button"
+              />
+              {/* Right click zone */}
+              <div
+                onClick={handleNext}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleNext();
+                  }
+                }}
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: 0,
+                  width: "33%",
+                  height: "100%",
+                  cursor: "pointer",
+                  zIndex: 5,
+                }}
+                aria-label="Next photo"
+                tabIndex={0}
+                role="button"
+              />
+            </>
+          )}
+
           {/* Photo */}
           <img
             src={currentPhoto.publicUrl}
@@ -212,6 +262,8 @@ export default function FrameViewPage({ frameData }: FramePageProps) {
               maxHeight: "100%",
               objectFit: "contain",
               transition: "opacity 0.5s ease-in-out",
+              zIndex: 1,
+              position: "relative",
             }}
           />
 

@@ -29,9 +29,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "Frame ID is required" });
     }
 
-    // Verify frame belongs to user
+    // Verify frame exists and check permissions
     const frame = await db
-      .select({ id: frames.id, userId: frames.userId })
+      .select({ id: frames.id, userId: frames.userId, isShared: frames.isShared })
       .from(frames)
       .where(eq(frames.id, frameId))
       .limit(1);
@@ -40,7 +40,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: "Frame not found" });
     }
 
-    if (frame[0].userId !== userId) {
+    // Allow if frame is shared (collaborative) OR user is the owner
+    if (!frame[0].isShared && frame[0].userId !== userId) {
       return res.status(403).json({ error: "You don't have permission to modify this frame" });
     }
 
@@ -55,15 +56,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { photoIds } = parsed.data;
 
-    // Verify all photos belong to the user
-    const userPhotos = await db
+    // Verify all photos exist (for collaborative frames, any user can add any photo)
+    const existingPhotos = await db
       .select({ id: photos.id })
       .from(photos)
-      .where(and(eq(photos.userId, userId), inArray(photos.id, photoIds)));
+      .where(inArray(photos.id, photoIds));
 
-    if (userPhotos.length !== photoIds.length) {
+    if (existingPhotos.length !== photoIds.length) {
       return res.status(400).json({
-        error: "Some photos not found or you don't have permission to use them",
+        error: "Some photos not found",
       });
     }
 
@@ -76,14 +77,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const existingPhotoIds = new Set(existingFramePhotos.map((fp) => fp.photoId));
     const newPhotoIds = photoIds.filter((id) => !existingPhotoIds.has(id));
 
-    // Add only new photos to frame
+    // Add only new photos to frame (handle duplicates gracefully)
     if (newPhotoIds.length > 0) {
-      await db.insert(framePhotos).values(
-        newPhotoIds.map((photoId) => ({
-          frameId,
-          photoId,
-        }))
-      );
+      try {
+        await db.insert(framePhotos).values(
+          newPhotoIds.map((photoId) => ({
+            frameId,
+            photoId,
+          }))
+        );
+      } catch (error) {
+        // Ignore duplicate key errors (frame_photo_unique constraint)
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (!errorMessage.includes("frame_photo_unique")) {
+          throw error;
+        }
+      }
     }
 
     return res.status(200).json({

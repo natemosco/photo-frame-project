@@ -30,6 +30,12 @@ export default function MyPhotosPage() {
     open: false,
     photoIds: [],
   });
+  const [addToFrameModal, setAddToFrameModal] = useState(false);
+  const [userFrames, setUserFrames] = useState<Array<{ id: string; name: string }>>([]);
+  const [loadingFrames, setLoadingFrames] = useState(false);
+  const [newFrameName, setNewFrameName] = useState("");
+  const [selectedFrameIds, setSelectedFrameIds] = useState<Set<string>>(new Set());
+  const [addingToFrame, setAddingToFrame] = useState(false);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -192,6 +198,106 @@ export default function MyPhotosPage() {
 
   function handleCancelDelete() {
     setDeletionConfirm({ open: false, photoIds: [] });
+  }
+
+  async function handleOpenAddToFrame() {
+    if (selectedIds.size === 0) return;
+    setAddToFrameModal(true);
+    setLoadingFrames(true);
+    try {
+      const res = await fetch("/api/frames");
+      const json = await res.json();
+      if (res.ok) {
+        setUserFrames(json.frames || []);
+      }
+    } catch (error) {
+      setErr("Failed to load frames");
+    } finally {
+      setLoadingFrames(false);
+    }
+  }
+
+  function handleCloseAddToFrame() {
+    setAddToFrameModal(false);
+    setNewFrameName("");
+    setSelectedFrameIds(new Set());
+  }
+
+  function handleToggleFrameSelection(frameId: string) {
+    setSelectedFrameIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(frameId)) {
+        next.delete(frameId);
+      } else {
+        next.add(frameId);
+      }
+      return next;
+    });
+  }
+
+  async function handleCreateFrameWithPhotos() {
+    if (!newFrameName.trim() || selectedIds.size === 0 || addingToFrame) return;
+
+    setAddingToFrame(true);
+    setErr("");
+    try {
+      const res = await fetch("/api/frames/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newFrameName.trim(),
+          photoIds: Array.from(selectedIds),
+          isShared: true, // Collaborative frames
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setErr(data?.error ?? "Failed to create frame");
+        return;
+      }
+
+      // Success - close modal and clear selection
+      handleCloseAddToFrame();
+      setSelectedIds(new Set());
+    } catch (error) {
+      setErr("Failed to create frame");
+    } finally {
+      setAddingToFrame(false);
+    }
+  }
+
+  async function handleAddToExistingFrames() {
+    if (selectedFrameIds.size === 0 || selectedIds.size === 0 || addingToFrame) return;
+
+    setAddingToFrame(true);
+    setErr("");
+    try {
+      const photoIds = Array.from(selectedIds);
+      const promises = Array.from(selectedFrameIds).map((frameId) =>
+        fetch(`/api/frames/${frameId}/photos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ photoIds }),
+        })
+      );
+
+      const results = await Promise.all(promises);
+      const errors = results.filter((r) => !r.ok);
+
+      if (errors.length > 0) {
+        setErr("Failed to add photos to some frames");
+        return;
+      }
+
+      // Success - close modal and clear selection
+      handleCloseAddToFrame();
+      setSelectedIds(new Set());
+    } catch (error) {
+      setErr("Failed to add photos to frames");
+    } finally {
+      setAddingToFrame(false);
+    }
   }
 
   if (status === "loading") {
@@ -440,6 +546,38 @@ export default function MyPhotosPage() {
                   }}
                 >
                   Make Private
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOpenAddToFrame}
+                  disabled={toggling || deleting}
+                  style={{
+                    padding: "10px 20px",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: "linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)",
+                    color: "white",
+                    cursor: toggling || deleting ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    opacity: toggling || deleting ? 0.6 : 1,
+                    boxShadow: "0 2px 4px rgba(139, 92, 246, 0.3)",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!toggling && !deleting) {
+                      e.currentTarget.style.transform = "translateY(-2px)";
+                      e.currentTarget.style.boxShadow = "0 4px 8px rgba(139, 92, 246, 0.4)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!toggling && !deleting) {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = "0 2px 4px rgba(139, 92, 246, 0.3)";
+                    }
+                  }}
+                >
+                  Add To Frame
                 </button>
                 <button
                   type="button"
@@ -873,6 +1011,235 @@ export default function MyPhotosPage() {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Add To Frame Modal */}
+          {addToFrameModal && (
+            <div
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: "rgba(0, 0, 0, 0.5)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 1000,
+              }}
+              onClick={handleCloseAddToFrame}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  handleCloseAddToFrame();
+                }
+              }}
+            >
+              <div
+                style={{
+                  backgroundColor: "white",
+                  padding: "24px",
+                  borderRadius: "12px",
+                  maxWidth: "500px",
+                  width: "90%",
+                  maxHeight: "80vh",
+                  overflowY: "auto",
+                  boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                }}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                }}
+              >
+                <h2
+                  style={{
+                    margin: "0 0 20px 0",
+                    color: "#374151",
+                    fontSize: "20px",
+                    fontWeight: "700",
+                  }}
+                >
+                  Add {selectedIds.size} Photo{selectedIds.size !== 1 ? "s" : ""} to Frame
+                </h2>
+
+                {/* Create New Frame Section */}
+                <div style={{ marginBottom: "32px" }}>
+                  <h3
+                    style={{
+                      margin: "0 0 12px 0",
+                      color: "#111827",
+                      fontSize: "16px",
+                      fontWeight: "600",
+                    }}
+                  >
+                    Create New Frame
+                  </h3>
+                  <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+                    <input
+                      type="text"
+                      value={newFrameName}
+                      onChange={(e) => setNewFrameName(e.target.value)}
+                      placeholder="Frame name..."
+                      disabled={addingToFrame}
+                      style={{
+                        flex: 1,
+                        padding: "10px 12px",
+                        borderRadius: "8px",
+                        border: "1px solid #d1d5db",
+                        fontSize: "14px",
+                        outline: "none",
+                        opacity: addingToFrame ? 0.6 : 1,
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && newFrameName.trim()) {
+                          handleCreateFrameWithPhotos();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCreateFrameWithPhotos}
+                      disabled={!newFrameName.trim() || addingToFrame}
+                      style={{
+                        padding: "10px 20px",
+                        borderRadius: "8px",
+                        border: "none",
+                        background:
+                          newFrameName.trim() && !addingToFrame
+                            ? "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)"
+                            : "#d1d5db",
+                        color: "white",
+                        cursor: newFrameName.trim() && !addingToFrame ? "pointer" : "not-allowed",
+                        fontSize: "14px",
+                        fontWeight: "600",
+                        opacity: addingToFrame ? 0.6 : 1,
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      {addingToFrame ? "Creating..." : "Create"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Add to Existing Frames Section */}
+                <div style={{ marginBottom: "24px" }}>
+                  <h3
+                    style={{
+                      margin: "0 0 12px 0",
+                      color: "#111827",
+                      fontSize: "16px",
+                      fontWeight: "600",
+                    }}
+                  >
+                    Add to Existing Frames
+                  </h3>
+                  {loadingFrames ? (
+                    <div style={{ padding: "20px", textAlign: "center", color: "#6b7280" }}>
+                      Loading frames...
+                    </div>
+                  ) : userFrames.length === 0 ? (
+                    <div style={{ padding: "20px", textAlign: "center", color: "#6b7280" }}>
+                      No existing frames. Create a new one above!
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        maxHeight: "200px",
+                        overflowY: "auto",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                        padding: "8px",
+                      }}
+                    >
+                      {userFrames.map((frame) => (
+                        <label
+                          key={frame.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "12px",
+                            padding: "10px",
+                            borderRadius: "6px",
+                            cursor: addingToFrame ? "not-allowed" : "pointer",
+                            backgroundColor: selectedFrameIds.has(frame.id)
+                              ? "rgba(99, 102, 241, 0.1)"
+                              : "transparent",
+                            transition: "background-color 0.2s ease",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedFrameIds.has(frame.id)}
+                            onChange={() => handleToggleFrameSelection(frame.id)}
+                            disabled={addingToFrame}
+                            style={{
+                              width: "18px",
+                              height: "18px",
+                              cursor: addingToFrame ? "not-allowed" : "pointer",
+                              accentColor: "#6366f1",
+                            }}
+                          />
+                          <span style={{ fontSize: "14px", color: "#374151", fontWeight: "500" }}>
+                            {frame.name}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {userFrames.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleAddToExistingFrames}
+                      disabled={selectedFrameIds.size === 0 || addingToFrame}
+                      style={{
+                        marginTop: "12px",
+                        width: "100%",
+                        padding: "10px 20px",
+                        borderRadius: "8px",
+                        border: "none",
+                        background:
+                          selectedFrameIds.size > 0 && !addingToFrame
+                            ? "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)"
+                            : "#d1d5db",
+                        color: "white",
+                        cursor:
+                          selectedFrameIds.size > 0 && !addingToFrame ? "pointer" : "not-allowed",
+                        fontSize: "14px",
+                        fontWeight: "600",
+                        opacity: addingToFrame ? 0.6 : 1,
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      {addingToFrame
+                        ? "Adding..."
+                        : `Add to ${selectedFrameIds.size} Frame${selectedFrameIds.size !== 1 ? "s" : ""}`}
+                    </button>
+                  )}
+                </div>
+
+                {/* Close Button */}
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    onClick={handleCloseAddToFrame}
+                    disabled={addingToFrame}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: "8px",
+                      border: "1px solid #d1d5db",
+                      backgroundColor: "white",
+                      color: "#374151",
+                      cursor: addingToFrame ? "not-allowed" : "pointer",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      opacity: addingToFrame ? 0.6 : 1,
+                    }}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

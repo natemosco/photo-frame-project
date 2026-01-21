@@ -1,10 +1,10 @@
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { desc, eq } from "drizzle-orm";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServerSession } from "next-auth/next";
 import { db } from "../../../db";
-import { framePhotos, frames } from "../../../db/schema";
+import { framePhotos, frames, photos } from "../../../db/schema";
 import { authOptions } from "../auth/[...nextauth]";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -30,17 +30,49 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .where(eq(frames.isShared, true))
       .orderBy(desc(frames.createdAt));
 
-    // Get photo count for each frame
+    // Get photo count and cover photo for each frame
+    const s3 = new S3Client({ region: process.env.AWS_REGION });
+    const bucket = process.env.S3_BUCKET;
+
     const framesWithPhotoCounts = await Promise.all(
       sharedFrames.map(async (frame) => {
+        // Get photo count
+        const framePhotoRecords = await db
+          .select({ photoId: framePhotos.photoId })
+          .from(framePhotos)
+          .where(eq(framePhotos.frameId, frame.id))
+          .orderBy(asc(framePhotos.createdAt))
+          .limit(1); // Get first photo for cover
+
         const photoCount = await db
           .select({ count: framePhotos.id })
           .from(framePhotos)
           .where(eq(framePhotos.frameId, frame.id));
 
+        let coverPhotoUrl: string | null = null;
+
+        // Get cover photo (first photo in frame)
+        if (framePhotoRecords.length > 0 && bucket) {
+          const firstPhotoId = framePhotoRecords[0].photoId;
+          const coverPhoto = await db
+            .select({ s3Key: photos.s3Key })
+            .from(photos)
+            .where(eq(photos.id, firstPhotoId))
+            .limit(1);
+
+          if (coverPhoto.length > 0) {
+            const getCommand = new GetObjectCommand({
+              Bucket: bucket,
+              Key: coverPhoto[0].s3Key,
+            });
+            coverPhotoUrl = await getSignedUrl(s3, getCommand, { expiresIn: 3600 });
+          }
+        }
+
         return {
           ...frame,
           photoCount: photoCount.length,
+          coverPhotoUrl,
           createdAt: frame.createdAt.toISOString(),
           updatedAt: frame.updatedAt.toISOString(),
         };

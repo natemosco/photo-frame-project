@@ -10,7 +10,7 @@ import { authOptions } from "../auth/[...nextauth]";
 const CreateFrameSchema = z.object({
   name: z.string().min(1).max(200),
   photoIds: z.array(z.string().uuid()).optional(),
-  isShared: z.boolean().optional().default(false),
+  isShared: z.boolean().optional().default(true), // Default to true for collaborative frames
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -67,14 +67,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         updatedAt: frames.updatedAt,
       });
 
-    // Add photos to frame if provided
+    // Add photos to frame if provided (handle duplicates gracefully)
     if (photoIds && photoIds.length > 0) {
-      await db.insert(framePhotos).values(
-        photoIds.map((photoId) => ({
-          frameId: newFrame.id,
-          photoId,
-        }))
-      );
+      try {
+        await db.insert(framePhotos).values(
+          photoIds.map((photoId) => ({
+            frameId: newFrame.id,
+            photoId,
+          }))
+        );
+      } catch (error) {
+        // Ignore duplicate key errors (frame_photo_unique constraint)
+        // This allows idempotent operations
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (!errorMessage.includes("frame_photo_unique")) {
+          throw error;
+        }
+      }
     }
 
     return res.status(201).json({

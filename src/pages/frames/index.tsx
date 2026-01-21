@@ -1,5 +1,6 @@
 import type { GetServerSideProps } from "next";
 import { getServerSession } from "next-auth/next";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import Navigation from "../../components/Navigation";
 import { authOptions } from "../api/auth/[...nextauth]";
@@ -8,6 +9,7 @@ type FrameListItem = {
   id: string;
   name: string;
   photoCount: number;
+  coverPhotoUrl: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -48,23 +50,62 @@ export default function FramesPage() {
         }}
       >
         <div className="fade-in">
-          <h1
+          <div
             style={{
-              fontSize: "clamp(2rem, 4vw, 3rem)",
-              marginBottom: "8px",
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-              fontWeight: "800",
-              letterSpacing: "-1px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              marginBottom: "32px",
+              flexWrap: "wrap",
+              gap: "16px",
             }}
           >
-            Frames
-          </h1>
-          <p style={{ fontSize: "1.125rem", color: "#6b7280", marginBottom: "32px" }}>
-            Explore shared frames from the community
-          </p>
+            <div>
+              <h1
+                style={{
+                  fontSize: "clamp(2rem, 4vw, 3rem)",
+                  marginBottom: "8px",
+                  background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                  fontWeight: "800",
+                  letterSpacing: "-1px",
+                }}
+              >
+                Frames
+              </h1>
+              <p style={{ fontSize: "1.125rem", color: "#6b7280" }}>
+                Explore shared frames from the community
+              </p>
+            </div>
+            <Link
+              href="/my-photos"
+              style={{
+                textDecoration: "none",
+                padding: "12px 24px",
+                borderRadius: "8px",
+                border: "none",
+                background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                color: "white",
+                fontSize: "14px",
+                fontWeight: "600",
+                boxShadow: "0 4px 6px rgba(99, 102, 241, 0.3)",
+                transition: "all 0.2s ease",
+                display: "inline-block",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 6px 12px rgba(99, 102, 241, 0.4)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 4px 6px rgba(99, 102, 241, 0.3)";
+              }}
+            >
+              Add Frame
+            </Link>
+          </div>
 
           {err && (
             <div
@@ -114,21 +155,22 @@ export default function FramesPage() {
               }}
             >
               {frames.map((frame) => (
-                <a
+                <Link
                   key={frame.id}
                   href={`/frames/${frame.id}`}
                   className="card fade-in"
                   style={{
-                    padding: "16px",
-                    textDecoration: "none",
-                    color: "inherit",
+                    padding: "20px",
                     display: "flex",
                     flexDirection: "column",
-                    gap: "12px",
+                    gap: "16px",
                     border: "1px solid rgba(229, 231, 235, 0.8)",
                     borderRadius: "12px",
                     boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.06)",
                     transition: "all 0.2s ease",
+                    cursor: "pointer",
+                    textDecoration: "none",
+                    color: "inherit",
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = "translateY(-4px)";
@@ -139,57 +181,108 @@ export default function FramesPage() {
                     e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.06)";
                   }}
                 >
+                  {/* Art Frame with Cover Photo */}
                   <div
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: "8px",
+                      position: "relative",
+                      width: "100%",
+                      paddingTop: "75%", // 4:3 aspect ratio
+                      backgroundColor: "#f3f4f6",
+                      borderRadius: "8px",
+                      overflow: "hidden",
+                      border: "12px solid #1a1a1a", // Outer dark frame border
+                      boxShadow: "inset 0 0 0 4px #f5f5f5", // Inner mat border
                     }}
                   >
-                    <h2
-                      style={{
-                        fontSize: "1.1rem",
-                        fontWeight: 700,
-                        margin: 0,
-                        color: "#111827",
-                      }}
-                    >
-                      {frame.name}
-                    </h2>
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        backgroundColor: "rgba(99, 102, 241, 0.1)",
-                        color: "#4f46e5",
-                        padding: "4px 8px",
-                        borderRadius: "9999px",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {frame.photoCount} photos
-                    </span>
+                    {frame.coverPhotoUrl ? (
+                      <img
+                        src={frame.coverPhotoUrl}
+                        alt={frame.name}
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "50%",
+                          left: "50%",
+                          transform: "translate(-50%, -50%)",
+                          color: "#9ca3af",
+                          fontSize: "3rem",
+                        }}
+                      >
+                        🖼️
+                      </div>
+                    )}
                   </div>
 
-                  <div style={{ color: "#6b7280", fontSize: "0.9rem" }}>
-                    Updated {new Date(frame.updatedAt).toLocaleDateString()}
+                  {/* Frame Info */}
+                  <div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: "8px",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      <h2
+                        style={{
+                          fontSize: "1.1rem",
+                          fontWeight: 700,
+                          margin: 0,
+                          color: "#111827",
+                        }}
+                      >
+                        {frame.name}
+                      </h2>
+                      <span
+                        style={{
+                          fontSize: "0.75rem",
+                          backgroundColor: "rgba(99, 102, 241, 0.1)",
+                          color: "#4f46e5",
+                          padding: "4px 8px",
+                          borderRadius: "9999px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {frame.photoCount} photo{frame.photoCount !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <div style={{ color: "#6b7280", fontSize: "0.85rem", marginBottom: "4px" }}>
+                      Updated {new Date(frame.updatedAt).toLocaleDateString()}
+                    </div>
+                    <div style={{ color: "#9ca3af", fontSize: "0.8rem" }}>
+                      Created {new Date(frame.createdAt).toLocaleDateString()}
+                    </div>
                   </div>
-                  <div style={{ color: "#9ca3af", fontSize: "0.85rem" }}>
-                    Created {new Date(frame.createdAt).toLocaleDateString()}
-                  </div>
+
+                  {/* View Button */}
                   <div
                     style={{
                       marginTop: "auto",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      color: "#4f46e5",
+                      padding: "10px 16px",
+                      borderRadius: "8px",
+                      border: "1px solid #6366f1",
+                      backgroundColor: "white",
+                      color: "#6366f1",
+                      fontSize: "14px",
                       fontWeight: 600,
+                      textAlign: "center",
+                      transition: "all 0.2s ease",
                     }}
                   >
-                    View frame →
+                    View Frame
                   </div>
-                </a>
+                </Link>
               ))}
             </div>
           )}
