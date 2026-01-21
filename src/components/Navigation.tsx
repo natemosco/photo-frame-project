@@ -83,6 +83,28 @@ export default function Navigation() {
             Gallery
           </Link>
           <Link
+            href="/frames"
+            style={{
+              textDecoration: "none",
+              color: "#374151",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              fontSize: "14px",
+              fontWeight: "500",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "rgba(99, 102, 241, 0.1)";
+              e.currentTarget.style.color = "#6366f1";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "transparent";
+              e.currentTarget.style.color = "#374151";
+            }}
+          >
+            Frames
+          </Link>
+          <Link
             href="/my-photos"
             style={{
               textDecoration: "none",
